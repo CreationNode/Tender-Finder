@@ -486,7 +486,7 @@ function renderResults(data,term){
     const days=r.daysLeft===null?"":pill(r.daysLeft===0?"closes today":r.daysLeft+" days left","days"+(r.daysLeft<=7?" soon":""));
     const also=(r.alsoOn||[]).map(x=>pill("also "+esc(x),"also")).join("");
     li.innerHTML=`
-      <div class="meta">${pill(esc(r.source||"?"),"src")}${also}${days}${r.country?pill(esc(r.country)):""}${r.cpv?pill("CPV "+esc(r.cpv)):""}${r.deadline?pill("closes "+esc(r.deadline)):""}</div>
+      <div class="meta">${pill(esc(r.source||"?"),"src")}${also}${days}${r.country?pill(esc(r.country)):""}${r.cpv?pill((/^(CPV|PSC|NAICS|GSIN|UNSPSC) /.test(r.cpv)?"":"CPV ")+esc(r.cpv)):""}${r.deadline?pill("closes "+esc(r.deadline)):""}</div>
       <h3><a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a></h3>
       <div class="buyer">${esc(r.buyer)||"Buyer not stated"}${r.value?" · est. "+esc(r.value)+" "+esc(r.currency):""}</div>`;
     list.appendChild(li);
@@ -542,6 +542,7 @@ async function run(){
       cpvCodes:codes,
       keywords:text.split(/\s+/).slice(0,6),   // national portals search words, not codes
       curatedLabels:hits.map(h=>h.label),
+      matchedTerms:hits.map(h=>h.matched),   // cached sources match these as whole phrases
       country:$("country").value,
       daysBack:90,limit:40,
       term:text                      // for telemetry only; filtered and truncated server-side

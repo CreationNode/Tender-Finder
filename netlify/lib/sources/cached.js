@@ -44,16 +44,78 @@ async function loadIndex(origin, name) {
   return data;
 }
 
-function scoreRow(row, terms, codes) {
-  const hay = (row[COL.title] + " " + row[COL.buyer] + " " + row[COL.codes]).toLowerCase();
-  let score = 0;
-  for (const c of codes) if (row[COL.codes].includes(c)) score += 5;
-  for (const t of terms) {
-    if (!t) continue;
-    if (new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(hay)) score += 3;
-    else if (hay.includes(t)) score += 1;
+// Words too common to count as evidence on their own.
+const STOP = new Set(["and", "the", "for", "with", "from", "of", "in", "to", "or", "a", "an", "services", "supply", "supplies"]);
+
+/** Crude plural folding so "panel" matches "panels" and "batteries" matches "battery". */
+function stem(w) {
+  if (w.length > 4 && w.endsWith("ies")) return w.slice(0, -3) + "y";
+  if (w.length > 4 && /(ses|xes|ches|shes)$/.test(w)) return w.slice(0, -2);
+  if (w.length > 3 && w.endsWith("s") && !w.endsWith("ss")) return w.slice(0, -1);
+  return w;
+}
+
+function words(text) {
+  return String(text || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2 && !STOP.has(w)).map(stem);
+}
+
+// Whole-word token set per row, built once per loaded index (the index is memoised for 10 min).
+const tokenCache = new WeakMap();
+function rowTokens(row) {
+  let t = tokenCache.get(row);
+  if (!t) {
+    t = new Set(words(row[COL.title] + " " + row[COL.buyer]));
+    tokenCache.set(row, t);
   }
-  return score;
+  return t;
+}
+
+/**
+ * A row qualifies only on real evidence: a classification-code hit, or ONE phrase matched as whole
+ * words. Phrases are the user's own query and each dictionary term it triggered ("solar").
+ *
+ * WHY: the previous rule kept any row with a single word or even a substring hit. On the live SAM
+ * index "solar panels" returned cockpit control panels, fire alarm panels and SolarWinds licences,
+ * because "panels" alone and "solar" inside "SolarWinds" both counted. Dictionary LABELS were also
+ * split into words, so "Body armour…" pulled in every "VALVE BODY" part. Labels are category names,
+ * not search terms, and are no longer used here.
+ */
+function scoreRow(row, phrases, codes) {
+  let score = 0;
+  let evidence = false;
+  for (const c of codes) if (row[COL.codes].includes(c)) { score += 5; evidence = true; }
+  const tokens = rowTokens(row);
+  for (const { ws, need, weight } of phrases) {
+    let hit = 0;
+    for (const w of ws) if (tokens.has(w)) hit++;
+    if (hit >= need) { evidence = true; score += weight + hit; }
+  }
+  return evidence ? score : 0;
+}
+
+/**
+ * Turn the request into phrases. A two-word query needs both words; a longer one may miss one
+ * word, so "school furniture for classrooms" still finds "Classroom furniture".
+ */
+function buildPhrases(params) {
+  const phrases = [];
+  const add = (text, weight) => {
+    const ws = [...new Set(words(text))];
+    if (!ws.length) return;
+    if (phrases.some((p) => p.ws.join(" ") === ws.join(" "))) return;
+    phrases.push({ ws, need: ws.length <= 2 ? ws.length : ws.length - 1, weight });
+  };
+  add((params.keywords || []).join(" "), 10);          // the user's own words rank highest
+  for (const t of params.matchedTerms || []) add(t, 3);
+  return phrases;
+}
+
+/** CPV prefix for hierarchy-aware matching: 09331000 covers 09331200. Division-only codes are too broad. */
+export function cpvPrefixes(params) {
+  return (params.cpvCodes || [])
+    .map((c) => String(c).replace(/0+$/, ""))
+    .filter((c) => c.length >= 3)
+    .map((c) => `CPV ${c}`);
 }
 
 /**
@@ -82,18 +144,16 @@ export function makeCachedSource({ id, label, countries, indexName, codeMatcher 
         ? Math.round((Date.now() - new Date(index.generatedAt)) / 3600000)
         : null;
 
-      const terms = [...(params.curatedLabels || []), ...(params.keywords || [])]
-        .flatMap((s) => String(s).toLowerCase().split(/[^\p{L}\p{N}]+/u))
-        .filter((w) => w.length > 3);
+      const phrases = buildPhrases(params);
       const codes = codeMatcher ? codeMatcher(params) : [];
 
-      if (!terms.length && !codes.length) {
+      if (!phrases.length && !codes.length) {
         return { notices: [], variant: null, diagnostics: ["skipped: no usable search terms"] };
       }
 
       const hits = [];
       for (const row of index.rows) {
-        const score = scoreRow(row, terms, codes);
+        const score = scoreRow(row, phrases, codes);
         if (score <= 0) continue;
         hits.push({ score, row });
       }

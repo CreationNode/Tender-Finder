@@ -49,6 +49,7 @@ export default async (request) => {
   const cpvCodes = (body.cpvCodes || []).slice(0, 20).map((c) => String(c).replace(/\D/g, "")).filter(Boolean);
   const keywords = (body.keywords || []).slice(0, 10).map((k) => String(k).slice(0, 60));
   const curatedLabels = (body.curatedLabels || []).slice(0, 6).map((k) => String(k).slice(0, 80));
+  const matchedTerms = (body.matchedTerms || []).slice(0, 6).map((k) => String(k).slice(0, 60));
   const daysBack = Math.min(Math.max(parseInt(body.daysBack, 10) || 90, 1), 365);
   const country = (body.country || "").replace(/[^A-Z]/gi, "").slice(0, 3).toUpperCase();
   const limit = Math.min(Math.max(parseInt(body.limit, 10) || 40, 1), 100);
@@ -66,7 +67,7 @@ export default async (request) => {
   const origin = new URL(request.url).origin;
   const gsinCodes = (body.gsinCodes || []).slice(0, 5).map((c) => String(c).trim()).filter(Boolean);
   const unspscCodes = (body.unspscCodes || []).slice(0, 5).map((c) => String(c).replace(/\D/g, "")).filter(Boolean);
-  const params = { cpvCodes, keywords, curatedLabels, pscCodes, naicsCodes, gsinCodes, unspscCodes,
+  const params = { cpvCodes, keywords, curatedLabels, matchedTerms, pscCodes, naicsCodes, gsinCodes, unspscCodes,
                    daysBack, country, limit, origin };
 
   const active = selectSources(country);
