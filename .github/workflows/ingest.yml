@@ -32,7 +32,11 @@ jobs:
         with:
           node-version: "20"
 
+      # run.mjs exits 1 if ANY source failed. That must not turn the whole job red: the last step
+      # below is the real verdict (red only when nothing was ingested), so one blocked portal such
+      # as CanadaBuys does not make every daily run look broken.
       - name: Run ingestion
+        continue-on-error: true
         env:
           SAM_API_KEY: ${{ secrets.SAM_API_KEY }}
           SAM_BULK_CSV_URL: ${{ secrets.SAM_BULK_CSV_URL }}
@@ -49,12 +53,15 @@ jobs:
           if [ ! -f data/index/manifest.json ]; then
             echo "No manifest — nothing to publish."; exit 0
           fi
-          git config user.name "tender-finder-bot"
-          git config user.email "actions@github.com"
           rm -rf /tmp/pub && mkdir -p /tmp/pub/data/index
           cp data/index/*.json /tmp/pub/data/index/
           cd /tmp/pub
           git init -q
+          # Identity must be set inside the fresh /tmp/pub repo: `git config` without --global only
+          # writes to the repo you are standing in, so setting it in the checkout left this one with
+          # no author and the first real run died with "empty ident name".
+          git config user.name "tender-finder-bot"
+          git config user.email "actions@github.com"
           git checkout -q --orphan indexes
           git add data/index
           git commit -q -m "Tender indexes $(date -u +%Y-%m-%dT%H:%M:%SZ)"
