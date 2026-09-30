@@ -1,0 +1,17 @@
+{
+  "name": "tender-finder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Find open public tenders by describing what you supply, in plain language.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "verify": "node ingest/verify.mjs",
+    "ingest": "node ingest/run.mjs",
+    "ingest:canada": "node ingest/run.mjs canadabuys",
+    "ingest:uk": "node ingest/run.mjs ukcf",
+    "cpv": "node tools/build-cpv-list.mjs"
+  }
+}

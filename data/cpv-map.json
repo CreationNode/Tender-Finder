@@ -1,0 +1,97 @@
+{
+  "_readme": "Plain-language -> CPV (Common Procurement Vocabulary) map. This is what generalizes the tool: any good, not one sector. Each entry lists CPV codes and the everyday words people actually use for that thing. Matching is substring-based on the user's own words, so partial phrases work ('office chair' hits 'chair'). Extend freely - add an entry, no code changes needed. CPV is the EU's official classification for public contracts; the full list has ~9,500 codes, this is a practical starter set across sectors.",
+  "version": "1.0",
+  "entries": [
+    { "label": "Furniture (general)", "cpv": ["39100000"], "terms": ["furniture", "furnishings", "fit-out"] },
+    { "label": "Chairs and seating", "cpv": ["39112000", "39113000"], "terms": ["chair", "chairs", "seating", "stool", "bench", "seats"] },
+    { "label": "Desks and tables", "cpv": ["39121000", "39121100"], "terms": ["desk", "desks", "table", "tables", "workbench"] },
+    { "label": "Office furniture", "cpv": ["39130000"], "terms": ["office furniture", "cabinet", "cabinets", "shelving", "filing"] },
+    { "label": "Beds and mattresses", "cpv": ["39143110", "39143112"], "terms": ["bed", "beds", "mattress", "mattresses", "bunk"] },
+
+    { "label": "Clothing and workwear", "cpv": ["18100000", "18110000"], "terms": ["clothing", "workwear", "uniform", "uniforms", "garment", "garments", "apparel", "overalls"] },
+    { "label": "Protective and safety clothing", "cpv": ["18130000", "18143000"], "terms": ["protective clothing", "safety clothing", "hi-vis", "high visibility", "ppe", "protective equipment"] },
+    { "label": "Footwear", "cpv": ["18800000", "18830000"], "terms": ["shoes", "boots", "footwear", "safety boots"] },
+    { "label": "Gloves", "cpv": ["18424000"], "terms": ["gloves", "glove"] },
+    { "label": "Textiles and fabrics", "cpv": ["19200000", "19240000"], "terms": ["textile", "textiles", "fabric", "fabrics", "cloth", "woven"] },
+    { "label": "Bedding and linen", "cpv": ["39510000", "39512000"], "terms": ["bedding", "linen", "sheets", "towels", "blankets"] },
+
+    { "label": "Body armour and helmets", "cpv": ["35815100", "35813000"], "terms": ["body armour", "body armor", "ballistic", "bulletproof", "helmet", "helmets", "plate carrier", "armour", "armor"] },
+    { "label": "Firefighting equipment", "cpv": ["35111000", "35111500"], "terms": ["firefighting", "fire fighting", "fire hose", "extinguisher", "fire equipment"] },
+    { "label": "Security and surveillance equipment", "cpv": ["35120000", "35125300"], "terms": ["surveillance", "cctv", "security camera", "access control", "alarm"] },
+
+    { "label": "Medical equipment (general)", "cpv": ["33100000"], "terms": ["medical equipment", "medical device", "medical devices", "hospital equipment"] },
+    { "label": "Medical consumables and disposables", "cpv": ["33140000", "33141000"], "terms": ["consumables", "disposables", "syringe", "syringes", "bandage", "dressings", "catheter"] },
+    { "label": "Surgical gloves and masks", "cpv": ["33141420", "33199000"], "terms": ["surgical gloves", "face mask", "masks", "respirator", "ffp2", "ffp3"] },
+    { "label": "Medicines and pharmaceuticals", "cpv": ["33600000", "33690000"], "terms": ["medicine", "medicines", "pharmaceutical", "pharmaceuticals", "drugs", "vaccine"] },
+    { "label": "Wheelchairs and mobility aids", "cpv": ["33193120", "33196000"], "terms": ["wheelchair", "wheelchairs", "mobility aid", "walking frame", "crutches"] },
+    { "label": "Laboratory equipment and reagents", "cpv": ["38400000", "33696000"], "terms": ["laboratory", "lab equipment", "reagent", "reagents", "microscope", "centrifuge"] },
+
+    { "label": "Computers and hardware", "cpv": ["30200000", "30213000"], "terms": ["computer", "computers", "laptop", "laptops", "desktop", "pc", "workstation", "tablet"] },
+    { "label": "Servers and storage", "cpv": ["48820000", "30233000"], "terms": ["server", "servers", "storage", "data centre", "data center", "nas"] },
+    { "label": "Printers and scanners", "cpv": ["30232100", "30216110"], "terms": ["printer", "printers", "scanner", "scanners", "copier", "multifunction"] },
+    { "label": "Networking equipment", "cpv": ["32420000", "32424000"], "terms": ["network", "networking", "router", "switch", "wifi", "cabling", "fibre"] },
+    { "label": "Software", "cpv": ["48000000"], "terms": ["software", "licence", "license", "saas", "application", "platform"] },
+    { "label": "IT services and support", "cpv": ["72000000", "72600000"], "terms": ["it services", "it support", "helpdesk", "development services", "consultancy"] },
+    { "label": "Telecommunications", "cpv": ["32500000", "64200000"], "terms": ["telecom", "telecommunications", "mobile phones", "sim", "voip", "radio equipment"] },
+
+    { "label": "Food and catering supplies", "cpv": ["15000000"], "terms": ["food", "foodstuffs", "groceries", "provisions", "catering supplies"] },
+    { "label": "Fresh produce", "cpv": ["03220000", "15300000"], "terms": ["fruit", "vegetables", "produce", "fresh food", "salad"] },
+    { "label": "Meat and fish", "cpv": ["15100000", "15200000"], "terms": ["meat", "poultry", "beef", "pork", "fish", "seafood"] },
+    { "label": "Dairy and bakery", "cpv": ["15500000", "15810000"], "terms": ["dairy", "milk", "cheese", "bread", "bakery", "pastry"] },
+    { "label": "Beverages", "cpv": ["15900000", "15980000"], "terms": ["beverages", "drinks", "water", "juice", "coffee", "tea"] },
+    { "label": "Catering services", "cpv": ["55520000", "55510000"], "terms": ["catering", "canteen", "school meals", "food service"] },
+
+    { "label": "Cleaning products", "cpv": ["39830000"], "terms": ["cleaning products", "detergent", "detergents", "soap", "sanitiser", "sanitizer", "disinfectant"] },
+    { "label": "Cleaning services", "cpv": ["90910000", "90911200"], "terms": ["cleaning services", "janitorial", "office cleaning", "housekeeping"] },
+    { "label": "Paper and stationery", "cpv": ["30190000", "30197630"], "terms": ["stationery", "paper", "office supplies", "envelopes", "printing paper"] },
+    { "label": "Waste collection and recycling", "cpv": ["90500000", "90510000"], "terms": ["waste", "refuse", "recycling", "bins", "rubbish", "disposal"] },
+
+    { "label": "Vehicles (cars and vans)", "cpv": ["34110000", "34136100"], "terms": ["car", "cars", "vehicle", "vehicles", "van", "vans", "fleet"] },
+    { "label": "Buses and coaches", "cpv": ["34121000"], "terms": ["bus", "buses", "coach", "coaches", "minibus"] },
+    { "label": "Trucks and specialist vehicles", "cpv": ["34130000", "34144000"], "terms": ["truck", "trucks", "lorry", "hgv", "ambulance", "fire engine", "refuse vehicle"] },
+    { "label": "Bicycles and e-mobility", "cpv": ["34430000", "34422000"], "terms": ["bicycle", "bicycles", "bike", "e-bike", "scooter"] },
+    { "label": "Vehicle parts and tyres", "cpv": ["34300000", "34351100"], "terms": ["spare parts", "vehicle parts", "tyres", "tires", "batteries"] },
+    { "label": "Fuel and lubricants", "cpv": ["09100000", "09130000"], "terms": ["fuel", "diesel", "petrol", "gasoline", "lubricant", "heating oil"] },
+
+    { "label": "Construction works", "cpv": ["45000000"], "terms": ["construction", "building works", "renovation", "refurbishment", "civil works"] },
+    { "label": "Roads and paving", "cpv": ["45233000", "45233140"], "terms": ["road", "roads", "paving", "asphalt", "resurfacing", "pavement"] },
+    { "label": "Electrical installation", "cpv": ["45310000", "31600000"], "terms": ["electrical", "wiring", "electrical installation", "switchgear"] },
+    { "label": "Plumbing and HVAC", "cpv": ["45330000", "42500000"], "terms": ["plumbing", "hvac", "heating", "ventilation", "air conditioning", "boiler"] },
+    { "label": "Building materials", "cpv": ["44100000", "44110000"], "terms": ["building materials", "cement", "concrete", "timber", "steel", "insulation", "bricks"] },
+    { "label": "Tools and hardware", "cpv": ["44510000", "42600000"], "terms": ["tools", "hand tools", "power tools", "machine tools", "hardware"] },
+
+    { "label": "Energy and electricity supply", "cpv": ["09310000", "65300000"], "terms": ["electricity", "energy supply", "power supply", "grid"] },
+    { "label": "Solar and renewables", "cpv": ["09331000", "31712331"], "terms": ["solar", "photovoltaic", "pv", "renewable", "wind turbine", "heat pump"] },
+    { "label": "Lighting", "cpv": ["31500000", "34993000"], "terms": ["lighting", "lights", "lamps", "led", "street lighting", "luminaire"] },
+
+    { "label": "Education supplies and teaching aids", "cpv": ["39162100", "22110000"], "terms": ["school supplies", "teaching aids", "textbooks", "books", "educational equipment"] },
+    { "label": "Training and courses", "cpv": ["80500000", "80510000"], "terms": ["training", "courses", "workshops", "education services", "e-learning"] },
+    { "label": "Sports and playground equipment", "cpv": ["37400000", "37535200"], "terms": ["sports equipment", "gym", "playground", "fitness", "pitch"] },
+    { "label": "Musical and stage equipment", "cpv": ["37300000", "32342400"], "terms": ["musical instruments", "stage", "audio equipment", "sound system", "pa system"] },
+
+    { "label": "Agricultural machinery", "cpv": ["16000000", "16700000"], "terms": ["tractor", "agricultural machinery", "farm equipment", "harvester"] },
+    { "label": "Seeds, plants and landscaping", "cpv": ["03451000", "77310000"], "terms": ["plants", "seeds", "trees", "landscaping", "grounds maintenance", "gardening"] },
+    { "label": "Animal feed and veterinary", "cpv": ["15700000", "33690000"], "terms": ["animal feed", "fodder", "veterinary", "pet food"] },
+
+    { "label": "Printing and publishing services", "cpv": ["79800000", "79810000"], "terms": ["printing", "print services", "publishing", "leaflets", "brochures", "signage"] },
+    { "label": "Marketing and communications", "cpv": ["79340000", "79341000"], "terms": ["advertising", "marketing", "communications", "campaign", "pr", "media buying"] },
+    { "label": "Translation and interpreting", "cpv": ["79530000", "79540000"], "terms": ["translation", "interpreting", "interpretation", "localisation", "localization"] },
+    { "label": "Security services (guarding)", "cpv": ["79710000", "79713000"], "terms": ["security services", "guarding", "security guards", "reception services"] },
+    { "label": "Transport and logistics services", "cpv": ["60000000", "63100000"], "terms": ["transport services", "logistics", "haulage", "freight", "courier", "removals", "warehousing"] },
+    { "label": "Maintenance and repair services", "cpv": ["50000000"], "terms": ["maintenance", "repair", "servicing", "upkeep"] },
+    { "label": "Consultancy and professional services", "cpv": ["79400000", "79411000"], "terms": ["consultancy", "consulting", "advisory", "professional services", "audit", "accounting"] },
+    { "label": "Legal services", "cpv": ["79100000"], "terms": ["legal services", "law firm", "legal advice"] },
+    { "label": "Research and development", "cpv": ["73000000", "73100000"], "terms": ["research", "r&d", "development services", "study", "feasibility"] },
+    { "label": "Engineering and architecture", "cpv": ["71000000", "71200000"], "terms": ["engineering", "architecture", "architectural", "design services", "surveying"] },
+    { "label": "Insurance and financial services", "cpv": ["66000000", "66510000"], "terms": ["insurance", "financial services", "banking", "pension", "brokerage"] },
+
+    { "label": "Laboratory and measuring instruments", "cpv": ["38500000", "38300000"], "terms": ["measuring", "instruments", "sensors", "meter", "calibration", "test equipment"] },
+    { "label": "Packaging and containers", "cpv": ["44610000", "18930000"], "terms": ["packaging", "containers", "bags", "boxes", "pallets", "drums"] },
+    { "label": "Chemicals and industrial gases", "cpv": ["24000000", "24110000"], "terms": ["chemicals", "industrial gas", "oxygen", "nitrogen", "solvent", "adhesive"] },
+    { "label": "Plastics and rubber products", "cpv": ["19500000", "19510000"], "terms": ["plastic", "plastics", "rubber", "polymer", "moulding"] },
+    { "label": "Metal products and fabrication", "cpv": ["44300000", "44316000"], "terms": ["metal", "steelwork", "fabrication", "welding", "castings", "fasteners"] },
+    { "label": "Signage and road furniture", "cpv": ["34992000", "34928400"], "terms": ["signs", "signage", "road signs", "bollards", "barriers", "street furniture"] },
+    { "label": "Marine and boats", "cpv": ["34500000", "34522000"], "terms": ["boat", "boats", "vessel", "marine", "ship", "rib"] },
+    { "label": "Drones and unmanned systems", "cpv": ["34711200", "35613000"], "terms": ["drone", "drones", "uav", "unmanned", "rpas"] }
+  ]
+}

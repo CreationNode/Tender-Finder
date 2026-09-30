@@ -1,0 +1,109 @@
+name: Ingest tender sources
+
+# Runs daily and refreshes the committed search indexes. Two things make this the right home for
+# ingestion: it is free for public repositories, and every run is a public log — for a project that
+# presents itself as a public good, an auditable data pipeline is a feature, not overhead.
+
+on:
+  schedule:
+    - cron: "17 5 * * *"      # 05:17 UTC daily; off the hour to avoid stampeding shared APIs
+  workflow_dispatch:           # lets you run it by hand from the Actions tab
+    inputs:
+      force:
+        description: "Overwrite indexes even if the row-count canary fails"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write              # needed to commit refreshed indexes
+
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run ingestion
+        env:
+          SAM_API_KEY: ${{ secrets.SAM_API_KEY }}
+          SAM_BULK_CSV_URL: ${{ secrets.SAM_BULK_CSV_URL }}
+          FORCE: ${{ inputs.force && '1' || '0' }}
+        run: node ingest/run.mjs
+
+      # Indexes are published to a dedicated, force-pushed branch rather than committed to main.
+      # A fresh 7 MB SAM index every day would add ~2 GB of permanent history per year to main;
+      # force-pushing an orphan branch keeps exactly one copy and no history. Netlify still serves
+      # the site from main and the search function reads indexes over HTTPS (see INDEX_BASE_URL).
+      - name: Publish indexes to the data branch
+        if: always()
+        run: |
+          if [ ! -f data/index/manifest.json ]; then
+            echo "No manifest — nothing to publish."; exit 0
+          fi
+          git config user.name "tender-finder-bot"
+          git config user.email "actions@github.com"
+          rm -rf /tmp/pub && mkdir -p /tmp/pub/data/index
+          cp data/index/*.json /tmp/pub/data/index/
+          cd /tmp/pub
+          git init -q
+          git checkout -q --orphan indexes
+          git add data/index
+          git commit -q -m "Tender indexes $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push -q --force "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" indexes
+          echo "Published to the 'indexes' branch."
+
+      # CRITICAL: this MUST run even when the ingestion step failed.
+      # The runner exits non-zero if ANY source fails, and by default GitHub Actions skips every
+      # later step — which meant one failing source (e.g. SAM without secrets) threw away the
+      # successful output of every other source, and the site kept showing "index not built yet".
+      # Per-source failures are isolated inside the runner; whatever succeeded must still ship.
+      # Optional fallback: also commit into main. Off by default because of the history growth
+      # described above; enable only for a low-volume deployment.
+      - name: Commit refreshed indexes to main (optional)
+        if: always() && vars.COMMIT_INDEXES_TO_MAIN == 'true'
+        run: |
+          git config user.name "tender-finder-bot"
+          git config user.email "actions@github.com"
+          git add data/index
+          if git diff --staged --quiet; then
+            echo "No index changes."
+          else
+            git commit -m "Refresh tender indexes ($(date -u +%Y-%m-%d))"
+            git push
+          fi
+
+      # A failed ingestion leaves the previous index in place, so the site keeps working with
+      # older data rather than going empty. The red run is the alert.
+      - name: Report
+        if: always()
+        run: |
+          echo "--- manifest ---"
+          cat data/index/manifest.json 2>/dev/null || echo "no manifest yet"
+          echo "--- index files ---"
+          ls -la data/index/ 2>/dev/null || echo "no index directory"
+
+      # Make a partial success visible without failing the whole run: the job is red only when
+      # NOTHING was ingested, amber-ish (green with a warning) when some sources worked.
+      - name: Fail only if every source failed
+        if: always()
+        run: |
+          node -e "
+            const fs=require('fs');
+            let m={sources:{}};
+            try{ m=JSON.parse(fs.readFileSync('data/index/manifest.json','utf8')); }catch{}
+            const all=Object.entries(m.sources||{});
+            const ok=all.filter(([,v])=>!v.lastError&&v.count>0);
+            const bad=all.filter(([,v])=>v.lastError);
+            console.log('Succeeded: '+(ok.map(([k,v])=>k+'('+v.count+')').join(', ')||'none'));
+            console.log('Failed:    '+(bad.map(([k,v])=>k+': '+v.lastError).join(' | ')||'none'));
+            if(!ok.length){ console.error('No source produced an index.'); process.exit(1); }
+          "

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What do you make? — Find EU public tenders for it</title>
+<meta name="description" content="Free search for open government contracts. Describe what you make in plain words and see live public tenders buying it — EU, UK, US, Canada, Ukraine and Australia. No account, no tracking.">
+<link rel="canonical" href="https://REPLACE-WITH-YOUR-DOMAIN/">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+
+<!-- Social preview. Without these a shared link shows a bare URL, which is most of the reason
+     public tools fail to spread. -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="What do you make? Find public tenders buying it">
+<meta property="og:description" content="Governments buy almost everything, but file it under numeric codes. Type what you supply and search EU, UK, US, Canadian, Ukrainian and Australian public contracts at once. Free, no account.">
+<meta property="og:url" content="https://REPLACE-WITH-YOUR-DOMAIN/">
+<meta property="og:site_name" content="Open Tender Finder">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="What do you make? Find public tenders buying it">
+<meta name="twitter:description" content="Search open government contracts across six countries by describing your product in plain language. Free and open source.">
+
+<!-- Structured data: tells search engines this is a free, no-login tool rather than a company page. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Open Tender Finder",
+  "url": "https://REPLACE-WITH-YOUR-DOMAIN/",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Any",
+  "description": "Free search for open government contract opportunities. Translates plain-language product descriptions into official procurement codes (CPV, PSC, NAICS, GSIN) and searches public tender sources across the EU, UK, US, Canada, Ukraine and Australia.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+  "isAccessibleForFree": true,
+  "inLanguage": "en"
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#faf9f6;
+    --ink:#15202b;
+    --ink-soft:#4a5763;
+    --rule:#ddd8cc;
+    --signal:#1f6b4a;        /* procurement green — used only for live/actionable things */
+    --signal-soft:#e8f1ec;
+    --urgent:#a8431f;        /* closing soon */
+    --code-bg:#eeece4;
+    --display:"Archivo",system-ui,sans-serif;
+    --body:"Source Sans 3",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);
+    font-size:17px;line-height:1.55;
+  }
+  .wrap{max-width:53rem;margin:0 auto;padding:0 1.25rem}
+
+  /* ---------- masthead: this is a public register, so it says so ---------- */
+  header{border-bottom:1.5px solid var(--ink);margin-bottom:2.5rem}
+  .masthead{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;padding:1rem 0 .85rem;flex-wrap:wrap}
+  .mark{font-family:var(--mono);font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)}
+  .mark b{color:var(--ink);font-weight:600}
+  .src{font-family:var(--mono);font-size:.7rem;color:var(--ink-soft)}
+
+  h1{
+    font-family:var(--display);font-weight:800;font-size:clamp(2.1rem,6vw,3.5rem);
+    line-height:1.02;letter-spacing:-.028em;margin:2.2rem 0 .9rem;text-wrap:balance;
+  }
+  .standfirst{font-size:1.12rem;color:var(--ink-soft);max-width:34rem;margin:0 0 2rem}
+
+  /* ---------- the search ---------- */
+  .ask{margin-bottom:.6rem}
+  label.q{display:block;font-family:var(--display);font-weight:700;font-size:1.02rem;margin-bottom:.5rem}
+  .inputrow{display:flex;gap:.6rem;flex-wrap:wrap}
+  input[type=text]{
+    flex:1 1 22rem;min-width:0;font-family:var(--body);font-size:1.06rem;
+    padding:.85rem .95rem;border:1.5px solid var(--ink);border-radius:2px;background:#fff;color:var(--ink);
+  }
+  input[type=text]:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--signal);outline-offset:2px}
+  select{
+    font-family:var(--body);font-size:.98rem;padding:.85rem .7rem;border:1.5px solid var(--rule);
+    border-radius:2px;background:#fff;color:var(--ink)
+  }
+  button.go{
+    font-family:var(--display);font-weight:700;font-size:1rem;letter-spacing:.01em;
+    padding:.85rem 1.5rem;border:1.5px solid var(--ink);border-radius:2px;
+    background:var(--ink);color:var(--paper);cursor:pointer;
+  }
+  button.go:hover{background:var(--signal);border-color:var(--signal)}
+  button.go[disabled]{opacity:.55;cursor:progress}
+  .examples{font-size:.9rem;color:var(--ink-soft);margin:.7rem 0 0}
+  .examples button{
+    font:inherit;font-size:.87rem;background:none;border:0;border-bottom:1px dotted var(--ink-soft);
+    color:var(--ink-soft);cursor:pointer;padding:0;margin:0 .1rem;
+  }
+  .examples button:hover{color:var(--signal);border-color:var(--signal)}
+
+  /* ---------- SIGNATURE: plain words becoming official codes ---------- */
+  .translate{
+    margin:1.6rem 0 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+    padding:.9rem 0;display:none;
+  }
+  .translate.on{display:block;animation:settle .45s ease both}
+  @keyframes settle{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  .tline{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;font-family:var(--mono);font-size:.82rem}
+  .tlabel{color:var(--ink-soft);text-transform:uppercase;letter-spacing:.1em;font-size:.68rem}
+  .said{background:#fff;border:1px solid var(--rule);padding:.2rem .5rem;border-radius:2px}
+  .arrow{color:var(--ink-soft)}
+  .code{
+    background:var(--code-bg);border:1px solid var(--rule);padding:.2rem .5rem;border-radius:2px;
+    font-weight:600;letter-spacing:.02em;
+  }
+  .code.miss{background:#fff;color:var(--ink-soft);font-weight:400}
+  .tnote{font-family:var(--body);font-size:.88rem;color:var(--ink-soft);margin:.55rem 0 0}
+  .official{margin:.7rem 0 0}
+  .official .tlabel{display:block;margin-bottom:.35rem}
+  .pickrow{display:flex;flex-wrap:wrap;gap:.4rem}
+  .pick{
+    font-family:var(--mono);font-size:.76rem;background:#fff;border:1px solid var(--rule);
+    padding:.25rem .5rem;border-radius:2px;cursor:pointer;color:var(--ink-soft);text-align:left;
+  }
+  .pick[aria-pressed=true]{background:var(--signal-soft);border-color:var(--signal);color:var(--signal);font-weight:600}
+  .pick span{font-family:var(--body);color:inherit;opacity:.85;margin-left:.35rem}
+  .suggest{font-size:.86rem;margin:.9rem 0 0}
+  .suggest a{color:var(--signal)}
+
+  /* ---------- results ---------- */
+  .status{font-family:var(--mono);font-size:.8rem;color:var(--ink-soft);margin:2rem 0 .8rem;min-height:1.2em}
+  ol.results{list-style:none;margin:0;padding:0}
+  li.notice{border-top:1px solid var(--rule);padding:1.15rem 0}
+  li.notice:last-child{border-bottom:1px solid var(--rule)}
+  .meta{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;font-family:var(--mono);font-size:.74rem;color:var(--ink-soft);margin-bottom:.4rem}
+  .pill{border:1px solid var(--rule);padding:.12rem .42rem;border-radius:2px;background:#fff}
+  .pill.days{border-color:var(--signal);color:var(--signal);background:var(--signal-soft);font-weight:600}
+  .pill.days.soon{border-color:var(--urgent);color:var(--urgent);background:#f8ece7}
+  .pill.src{background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:600;letter-spacing:.04em}
+  .pill.also{background:transparent;border-style:dashed}
+  .coverage{font-family:var(--mono);font-size:.72rem;color:var(--ink-soft);margin:.35rem 0 0}
+  .coverage b{color:var(--ink);font-weight:600}
+  .coverage .down{color:var(--urgent)}
+  .notice h3{font-family:var(--display);font-weight:700;font-size:1.13rem;line-height:1.3;margin:0 0 .3rem;letter-spacing:-.012em}
+  .notice h3 a{color:var(--ink);text-decoration:none;border-bottom:1.5px solid var(--rule)}
+  .notice h3 a:hover{color:var(--signal);border-color:var(--signal)}
+  .buyer{font-size:.96rem;color:var(--ink-soft)}
+  .empty{border:1px dashed var(--rule);padding:1.5rem;text-align:center;color:var(--ink-soft);border-radius:2px}
+  .empty b{color:var(--ink);font-family:var(--display)}
+  details.diag{margin-top:1rem;text-align:left;font-family:var(--mono);font-size:.74rem;color:var(--ink-soft)}
+  details.diag summary{cursor:pointer;color:var(--ink);font-family:var(--body);font-size:.88rem}
+  details.diag pre{white-space:pre-wrap;word-break:break-word;background:var(--code-bg);border:1px solid var(--rule);padding:.6rem;border-radius:2px;margin:.5rem 0 0}
+
+  /* ---------- coverage map: a tile cartogram, one square per country ----------
+     Deliberately schematic rather than a geographic projection: coverage is country-level, and a
+     tile grid makes Malta as legible as Germany. It also cannot mislead about borders. */
+  .mapwrap{margin:0 0 2rem}
+  .maphead{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap;margin-bottom:.6rem}
+  .maptitle{font-family:var(--display);font-weight:700;font-size:.95rem}
+  .legend{display:flex;gap:.9rem;flex-wrap:wrap;font-family:var(--mono);font-size:.68rem;color:var(--ink-soft)}
+  .legend i{display:inline-block;width:.62rem;height:.62rem;border:1px solid var(--rule);margin-right:.28rem;vertical-align:-1px}
+  .lg-deep{background:var(--signal)}
+  .lg-ted{background:#cfe0d6}
+  .lg-none{background:#fff}
+  .lg-hit{background:var(--urgent)}
+  .tilemap{
+    display:grid;grid-template-columns:repeat(13,1fr);gap:3px;
+    max-width:100%;overflow-x:auto;padding:.15rem;
+  }
+  .tile{
+    position:relative;aspect-ratio:1;border:1px solid var(--rule);background:#fff;border-radius:2px;
+    font-family:var(--mono);font-size:.52rem;color:var(--ink-soft);display:flex;align-items:center;
+    justify-content:center;cursor:pointer;padding:0;line-height:1;transition:transform .12s ease;
+  }
+  .tile[data-cov=deep]{background:var(--signal);color:#fff;border-color:var(--signal)}
+  .tile[data-cov=ted]{background:#cfe0d6;color:#33513f;border-color:#b9d2c4}
+  .tile[data-cov=none]{background:#fff;color:#aaa;border-style:dashed;cursor:not-allowed}
+  .tile[data-hits="1"]{background:var(--urgent);color:#fff;border-color:var(--urgent);transform:scale(1.12);z-index:2}
+  .tile:not([data-cov=none]):hover{transform:scale(1.12);z-index:3}
+  .tile:focus-visible{outline:2px solid var(--ink);outline-offset:2px;z-index:4}
+  .tile b{position:absolute;top:-4px;right:-4px;background:var(--ink);color:var(--paper);border-radius:99px;
+    font-size:.5rem;padding:.05rem .22rem;font-weight:600}
+  .mapnote{font-family:var(--body);font-size:.82rem;color:var(--ink-soft);margin:.55rem 0 0}
+  @media (max-width:640px){ .tilemap{grid-template-columns:repeat(13,1.55rem)} .tile{font-size:.48rem} }
+
+  footer{border-top:1.5px solid var(--ink);margin-top:3.5rem;padding:1.4rem 0 3rem;font-size:.9rem;color:var(--ink-soft)}
+  footer a{color:var(--ink)}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:1.4rem}
+  h4{font-family:var(--display);font-size:.95rem;margin:0 0 .35rem;color:var(--ink)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap masthead">
+    <div class="mark"><b>Open Tender Finder</b> · public procurement, plain language</div>
+    <div class="src">live data: TED (EU Official Journal)</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <h1>What do you make?</h1>
+  <p class="standfirst">
+    Governments buy almost everything — chairs, bread, bandages, software, boats — and they publish
+    it all. The catch is that it's filed under numeric codes, across a dozen different systems. Type
+    what you supply and this searches them at once: EU-wide, French contracts below the EU threshold,
+    US federal, Canadian and Australian federal, UK contracts above and below threshold, and
+    Ukraine's Prozorro.
+  </p>
+
+  <section class="mapwrap" aria-labelledby="maptitle">
+    <div class="maphead">
+      <span class="maptitle" id="maptitle">Where we look</span>
+      <span class="legend">
+        <span><i class="lg-deep"></i>national portal</span>
+        <span><i class="lg-ted"></i>EU-wide only</span>
+        <span><i class="lg-none"></i>not yet</span>
+        <span><i class="lg-hit"></i>results here</span>
+      </span>
+    </div>
+    <div class="tilemap" id="tilemap" role="group" aria-label="Coverage by country — select a country to filter"></div>
+    <p class="mapnote" id="mapnote">Tap a country to search just there. Squares are a schematic layout, not a map projection.</p>
+  </section>
+
+  <div class="ask">
+    <label class="q" for="what">Describe your product or service</label>
+    <div class="inputrow">
+      <input id="what" type="text" autocomplete="off" placeholder="wooden chairs, surgical gloves, road resurfacing…">
+      <select id="country" aria-label="Country">
+        <option value="">Everywhere we cover</option>
+      </select>
+      <button class="go" id="go" type="button">Find tenders</button>
+    </div>
+    <p class="examples">Try:
+      <button type="button" data-ex="office chairs">office chairs</button> ·
+      <button type="button" data-ex="surgical gloves">surgical gloves</button> ·
+      <button type="button" data-ex="school meals catering">school meals catering</button> ·
+      <button type="button" data-ex="solar panels">solar panels</button> ·
+      <button type="button" data-ex="translation services">translation services</button>
+    </p>
+  </div>
+
+  <!-- signature element: the moment plain words become official codes -->
+  <section class="translate" id="translate" aria-live="polite">
+    <div class="tline" id="tline"></div>
+    <p class="tnote" id="tnote"></p>
+    <div class="official" id="official" hidden>
+      <span class="tlabel">Other official codes that mention your words — tap to include</span>
+      <div class="pickrow" id="pickrow"></div>
+    </div>
+  </section>
+
+  <p class="status" id="status"></p>
+  <p class="coverage" id="coverage"></p>
+  <ol class="results" id="results"></ol>
+</main>
+
+<footer class="wrap">
+  <div class="cols">
+    <div>
+      <h4>Why this exists</h4>
+      Public contracts are open to anyone, but most small suppliers never see them because the
+      notices are filed under codes they don't know. This is a free translation layer. No account,
+      no tracking, no data stored.
+    </div>
+    <div>
+      <h4>What you're seeing</h4>
+      Some sources publish less than others: Australian notices carry no closing date or buyer,
+      because the AusTender feed does not include them. Where a deadline is missing we say so rather
+      than guessing.<br><br>
+      Live results from <a href="https://ted.europa.eu">TED</a> (EU Official Journal) and
+      <a href="https://www.boamp.fr">BOAMP</a> (France, including contracts below the EU
+      publication threshold — the ones TED never shows), plus daily-refreshed indexes of
+      <a href="https://sam.gov">SAM.gov</a> (US federal) and
+      <a href="https://canadabuys.canada.ca">CanadaBuys</a>. Each result is tagged with its source.
+      Closed notices are removed. Always confirm details on the official notice before acting.
+    </div>
+    <div>
+      <h4>Improve it</h4>
+      The word-to-code dictionary is a plain JSON file. If your trade is missing, add it — one entry,
+      no code changes. Contributions welcome.
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+import { rankCpv } from "./assets/rank.mjs";
+
+// Grouped so it is obvious which markets are actually covered, rather than listing every country
+// and silently returning nothing for most of them.
+const COUNTRY_GROUPS=[
+  ["Deep coverage",[["FRA","France (incl. below-threshold)"],["USA","United States (federal)"],["CAN","Canada (federal)"],["UKR","Ukraine (Prozorro)"],["GBR","United Kingdom (incl. below-threshold)"],["AUS","Australia (federal)"]]],
+  ["European Union",[["AUT","Austria"],["BEL","Belgium"],["BGR","Bulgaria"],["HRV","Croatia"],["CYP","Cyprus"],["CZE","Czechia"],["DNK","Denmark"],["EST","Estonia"],["FIN","Finland"],["DEU","Germany"],["GRC","Greece"],["HUN","Hungary"],["IRL","Ireland"],["ITA","Italy"],["LVA","Latvia"],["LTU","Lithuania"],["LUX","Luxembourg"],["MLT","Malta"],["NLD","Netherlands"],["POL","Poland"],["PRT","Portugal"],["ROU","Romania"],["SVK","Slovakia"],["SVN","Slovenia"],["ESP","Spain"],["SWE","Sweden"]]],
+  ["Wider Europe",[["NOR","Norway"],["ISL","Iceland"],["CHE","Switzerland"],["LIE","Liechtenstein"]]],
+];
+// Build the tile map once. Tiles for covered countries are buttons that set the country filter.
+function buildTileMap(){
+  const grid=document.getElementById("tilemap");
+  for(const [iso,name,col,row,cov] of TILES){
+    const t=document.createElement("button");
+    t.type="button"; t.className="tile"; t.dataset.iso=iso; t.dataset.cov=cov;
+    t.style.gridColumn=col; t.style.gridRow=row;
+    t.textContent=iso;
+    t.setAttribute("aria-label",
+      cov==="none" ? `${name} — not covered yet`
+      : `${name} — ${cov==="deep"?"national portal included":"covered by the EU-wide source"}. Search this country.`);
+    if(cov==="none"){ t.disabled=true; }
+    else t.addEventListener("click",()=>{
+      const selEl=$("country");
+      // Clicking the already-selected country clears the filter — a second tap means "everywhere".
+      selEl.value = selEl.value===iso ? "" : iso;
+      if($("what").value.trim()) run(); else $("what").focus();
+      markSelected();
+    });
+    grid.appendChild(t);
+  }
+  markSelected();
+}
+
+function markSelected(){
+  const cur=$("country").value;
+  document.querySelectorAll(".tile").forEach(t=>{
+    t.setAttribute("aria-pressed", t.dataset.iso===cur ? "true" : "false");
+    t.style.outline = t.dataset.iso===cur ? "2px solid var(--ink)" : "";
+    t.style.outlineOffset = t.dataset.iso===cur ? "1px" : "";
+  });
+}
+
+// After a search, light up the countries that actually returned something.
+function paintResults(results){
+  const counts={};
+  for(const r of results||[]) if(r.country) counts[r.country]=(counts[r.country]||0)+1;
+  document.querySelectorAll(".tile").forEach(t=>{
+    const n=counts[t.dataset.iso]||0;
+    t.dataset.hits = n>0 ? "1" : "0";
+    t.querySelector("b")?.remove();
+    if(n>0){ const b=document.createElement("b"); b.textContent=n>99?"99+":n; t.appendChild(b); }
+  });
+  const hit=Object.keys(counts).length;
+  $("mapnote").textContent = hit
+    ? `Results in ${hit} ${hit===1?"country":"countries"} — highlighted above. Tap a country to narrow to it.`
+    : "Tap a country to search just there. Squares are a schematic layout, not a map projection.";
+}
+
+function clearResultPaint(){
+  document.querySelectorAll(".tile").forEach(t=>{ t.dataset.hits="0"; t.querySelector("b")?.remove(); });
+}
+
+const sel=document.getElementById("country");
+for(const [groupName,list] of COUNTRY_GROUPS){
+  const g=document.createElement("optgroup");g.label=groupName;
+  for(const [code,name] of list){const o=document.createElement("option");o.value=code;o.textContent=name;g.appendChild(o);}
+  sel.appendChild(g);
+}
+
+// ---------- coverage tile map ----------
+// [iso3, label, gridColumn, gridRow, coverage]
+// Coverage: "deep" = a national portal is ingested; "ted" = covered only by the EU-wide source;
+// "none" = shown to make the gap visible rather than pretending the world ends at our sources.
+// The layout is a rough geographic arrangement, west to east.
+const TILES=[
+  // Americas
+  ["CAN","Canada",1,1,"deep"], ["USA","United States",1,2,"deep"], ["MEX","Mexico",1,4,"none"],
+  // Northern Europe
+  ["ISL","Iceland",4,1,"ted"], ["NOR","Norway",6,1,"ted"], ["SWE","Sweden",7,1,"ted"], ["FIN","Finland",8,1,"ted"],
+  ["IRL","Ireland",4,2,"ted"], ["GBR","United Kingdom",5,2,"deep"], ["DNK","Denmark",6,2,"ted"],
+  ["EST","Estonia",8,2,"ted"], ["LVA","Latvia",9,2,"ted"],
+  // Central Europe
+  ["BEL","Belgium",4,3,"ted"], ["NLD","Netherlands",5,3,"ted"], ["DEU","Germany",6,3,"ted"],
+  ["POL","Poland",7,3,"ted"], ["LTU","Lithuania",8,3,"ted"],
+  ["FRA","France",4,4,"deep"], ["LUX","Luxembourg",5,4,"ted"], ["CZE","Czechia",6,4,"ted"],
+  ["SVK","Slovakia",7,4,"ted"], ["UKR","Ukraine",8,4,"deep"],
+  // Southern Europe
+  ["PRT","Portugal",3,5,"ted"], ["ESP","Spain",4,5,"ted"], ["CHE","Switzerland",5,5,"ted"],
+  ["AUT","Austria",6,5,"ted"], ["HUN","Hungary",7,5,"ted"], ["ROU","Romania",8,5,"ted"],
+  ["ITA","Italy",5,6,"ted"], ["SVN","Slovenia",6,6,"ted"], ["HRV","Croatia",7,6,"ted"], ["BGR","Bulgaria",8,6,"ted"],
+  ["MLT","Malta",5,7,"ted"], ["GRC","Greece",7,7,"ted"], ["CYP","Cyprus",9,7,"ted"],
+  // Not yet covered — shown so the gaps are visible
+  ["TUR","Turkey",9,6,"none"], ["ISR","Israel",9,8,"none"], ["JPN","Japan",13,3,"none"],
+  // Oceania
+  ["AUS","Australia",12,7,"deep"],
+];
+
+let MAP=null, FULL=null, FULL_TRIED=false;
+const EXTRA=new Set();               // official codes the user has opted into
+const $=id=>document.getElementById(id);
+
+async function loadMap(){
+  if(MAP) return MAP;
+  const res=await fetch("data/cpv-map.json");
+  MAP=await res.json();
+  return MAP;
+}
+
+// The complete CPV vocabulary is optional: it is generated from the official EU file by
+// tools/build-cpv-list.mjs. If it hasn't been generated, everything still works on the curated
+// dictionary alone — we just don't offer the extra suggestions.
+async function loadFull(){
+  if(FULL||FULL_TRIED) return FULL;
+  FULL_TRIED=true;
+  try{
+    const res=await fetch("data/cpv-full.json");
+    if(!res.ok) return null;
+    const data=await res.json();
+    FULL=data.codes||null;
+  }catch{ FULL=null; }
+  return FULL;
+}
+
+// Ranking lives in assets/rank.mjs so the site and tools/rank-test.mjs share one implementation —
+// a ranking bug is only visible against the real vocabulary, so it must be testable offline.
+function searchFull(text,exclude){
+  if(!FULL) return [];
+  return rankCpv(text,FULL,exclude,8);
+}
+
+function renderOfficial(suggestions){
+  const box=$("official"), row=$("pickrow");
+  row.innerHTML="";
+  if(!suggestions.length){box.hidden=true;return;}
+  box.hidden=false;
+  for(const s of suggestions){
+    const b=document.createElement("button");
+    b.type="button";b.className="pick";b.setAttribute("aria-pressed",EXTRA.has(s.code)?"true":"false");
+    b.innerHTML=`${s.code}<span>${esc(s.label)}</span>`;
+    b.addEventListener("click",()=>{
+      if(EXTRA.has(s.code)) EXTRA.delete(s.code); else EXTRA.add(s.code);
+      b.setAttribute("aria-pressed",EXTRA.has(s.code)?"true":"false");
+      run();
+    });
+    row.appendChild(b);
+  }
+}
+
+// Match the user's words against the dictionary. Longest term first so "office chair" beats "chair".
+function matchCodes(text,map){
+  const q=text.toLowerCase().trim();
+  if(!q) return [];
+  const hits=[];
+  for(const entry of map.entries){
+    for(const term of [...entry.terms].sort((a,b)=>b.length-a.length)){
+      if(q.includes(term.toLowerCase())){
+        hits.push({label:entry.label,cpv:entry.cpv,matched:term});
+        break;
+      }
+    }
+  }
+  // Most specific first: an entry matched by a longer phrase is a better fit.
+  return hits.sort((a,b)=>b.matched.length-a.matched.length).slice(0,4);
+}
+
+function renderTranslation(text,hits){
+  const line=$("tline"),note=$("tnote");
+  line.innerHTML="";
+  const add=(cls,txt)=>{const s=document.createElement("span");s.className=cls;s.textContent=txt;line.appendChild(s);};
+  add("tlabel","you said");
+  add("said",text);
+  add("arrow","→");
+  add("tlabel","official code");
+  if(hits.length){
+    const codes=[...new Set(hits.flatMap(h=>h.cpv))].slice(0,6);
+    codes.forEach(c=>add("code",c));
+    note.textContent=hits.map(h=>h.label).join(" · ")+" — these are the CPV codes buyers file this under.";
+  }else{
+    add("code miss","no exact code");
+    note.textContent="No dictionary match, so we'll search the notice text for your words instead. Results may be broader.";
+  }
+  $("translate").classList.add("on");
+}
+
+function pill(text,cls){return `<span class="pill ${cls||""}">${text}</span>`;}
+function esc(s){return String(s??"").replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));}
+
+function renderResults(data,term){
+  const list=$("results");list.innerHTML="";
+  if(!data.results.length){
+    list.innerHTML=`<div class="empty"><b>Nothing open right now for “${esc(term)}”.</b><br>
+      Public buying is seasonal — try a broader description, widen to all countries, or check again next week.
+      <p class="suggest">If the codes above look wrong for what you do,
+      <a href="https://github.com/CreationNode/Tender-Finder/issues/new?title=${encodeURIComponent('Dictionary: '+term)}&body=${encodeURIComponent('Search term: '+term+'\n\nWhat I supply:\n\nCPV code(s) that would be right (if known):')}" target="_blank" rel="noopener">suggest a better match</a>.</p></div>`;
+    return;
+  }
+  for(const r of data.results){
+    const li=document.createElement("li");li.className="notice";
+    const days=r.daysLeft===null?"":pill(r.daysLeft===0?"closes today":r.daysLeft+" days left","days"+(r.daysLeft<=7?" soon":""));
+    const also=(r.alsoOn||[]).map(x=>pill("also "+esc(x),"also")).join("");
+    li.innerHTML=`
+      <div class="meta">${pill(esc(r.source||"?"),"src")}${also}${days}${r.country?pill(esc(r.country)):""}${r.cpv?pill("CPV "+esc(r.cpv)):""}${r.deadline?pill("closes "+esc(r.deadline)):""}</div>
+      <h3><a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a></h3>
+      <div class="buyer">${esc(r.buyer)||"Buyer not stated"}${r.value?" · est. "+esc(r.value)+" "+esc(r.currency):""}</div>`;
+    list.appendChild(li);
+  }
+}
+
+// Say plainly which portals answered and which did not. A public tool should never imply it
+// searched everywhere when one source was down.
+function renderCoverage(sources){
+  const el=$("coverage");
+  if(!sources.length){el.textContent="";return;}
+  const parts=sources.map(s=>{
+    if(s.skipped){return `<span>${esc(s.source)}: ${esc(s.skipped==="disabled"?"off":"not in scope")}</span>`;}
+    if(s.error){return `<span class="down">${esc(s.source)}: unavailable</span>`;}
+    if(s.found===0){
+      const diag=(s.diagnostics||[]).join(" ");
+      const why=/index .* not available/.test(diag)?"index not built yet"
+               :/EXPIRED|rejected/.test(diag)?"key expired"
+               :/rate limit/.test(diag)?"rate limited"
+               :"no results";
+      return `<span class="${why==="no results"?"":"down"}">${esc(s.source)}: ${why}</span>`;
+    }
+    // Cached sources: show how fresh the index is, and flag it loudly when it stops refreshing.
+    if(typeof s.ageHours==="number"){
+      const stale=(s.diagnostics||[]).some(d=>/STALE/.test(d));
+      const age=s.ageHours<24?`${s.ageHours}h`:`${Math.round(s.ageHours/24)}d`;
+      return `<b>${esc(s.source)}</b>: ${s.found} <span class="${stale?"down":""}">(index ${age} old${stale?" — STALE":""})</span>`;
+    }
+    return `<b>${esc(s.source)}</b>: ${s.found}`;
+  });
+  el.innerHTML="searched — "+parts.join(" · ");
+}
+
+async function run(){
+  const text=$("what").value.trim();
+  if(!text){$("what").focus();return;}
+  const btn=$("go");btn.disabled=true;
+  $("status").textContent="Searching public tender portals…";
+  $("coverage").textContent="";
+  $("results").innerHTML="";
+  clearResultPaint();
+  try{
+    const map=await loadMap();
+    const hits=matchCodes(text,map);
+    renderTranslation(text,hits);
+
+    const curated=new Set(hits.flatMap(h=>h.cpv));
+    await loadFull();
+    renderOfficial(searchFull(text,curated));
+
+    const codes=[...new Set([...curated,...EXTRA])];
+    const payload={
+      cpvCodes:codes,
+      keywords:text.split(/\s+/).slice(0,6),   // national portals search words, not codes
+      curatedLabels:hits.map(h=>h.label),
+      country:$("country").value,
+      daysBack:90,limit:40,
+      term:text                      // for telemetry only; filtered and truncated server-side
+    };
+    const res=await fetch("/.netlify/functions/search",{
+      method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)
+    });
+    const data=await res.json();
+    if(!res.ok){
+      const err=new Error(data.error||"Search failed.");
+      err.detail=data.detail||"";
+      err.diagnostics=data.diagnostics||[];
+      throw err;
+    }
+    renderResults(data,text);
+    $("status").textContent=`${data.results.length} open ${data.results.length===1?"tender":"tenders"} · deadlines in the future only`;
+    renderCoverage(data.sources||[]);
+    paintResults(data.results);
+  }catch(err){
+    $("status").textContent="";
+    const diag=(err.diagnostics&&err.diagnostics.length)
+      ? `<details class="diag"><summary>Show what the tenders service returned</summary><pre>${esc(err.diagnostics.join("\n"))}</pre></details>`
+      : "";
+    $("results").innerHTML=`<div class="empty"><b>${esc(err.message)}</b><br>${esc(err.detail||"Try again in a moment.")}${diag}</div>`;
+  }finally{btn.disabled=false;}
+}
+
+let lastText="";
+$("what").addEventListener("input",()=>{
+  if($("what").value.trim()!==lastText){EXTRA.clear();}
+});
+$("country").addEventListener("change",markSelected);
+buildTileMap();
+$("go").addEventListener("click",()=>{lastText=$("what").value.trim();run();});
+$("what").addEventListener("keydown",e=>{if(e.key==="Enter"){lastText=$("what").value.trim();run();}});
+document.querySelectorAll(".examples button").forEach(b=>{
+  b.addEventListener("click",()=>{$("what").value=b.dataset.ex;run();});
+});
+</script>
+</body>
+</html>

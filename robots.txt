@@ -1,0 +1,12 @@
+# Open Tender Finder — a free public tool for finding open government contracts.
+# Crawling is welcome. The serverless endpoints below do live lookups on behalf of a visitor and
+# have nothing useful to index, so they are excluded to save everyone's bandwidth.
+
+User-agent: *
+Allow: /
+Disallow: /.netlify/functions/
+
+# Index files are large machine-readable data, not pages.
+Disallow: /data/index/
+
+Sitemap: https://REPLACE-WITH-YOUR-DOMAIN/sitemap.xml
