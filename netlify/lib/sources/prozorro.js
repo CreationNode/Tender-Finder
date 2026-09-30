@@ -8,13 +8,15 @@
 // The ingester prefers `title_en` when available, so English keyword search works on part of the
 // index and Ukrainian search works across all of it.
 
-import { makeCachedSource } from "./cached.js";
+import { makeCachedSource, cpvPrefixes } from "./cached.js";
 
 const cached = makeCachedSource({
   id: "PROZORRO",
   label: "Prozorro (Ukraine)",
   countries: ["UKR"],
   indexName: "prozorro",
+  // Titles are Ukrainian; the ДК 021 (= CPV) codes stored at ingest are what English searches match.
+  codeMatcher: cpvPrefixes,
 });
 
 export const id = cached.id;

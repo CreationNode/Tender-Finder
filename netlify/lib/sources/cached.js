@@ -83,7 +83,9 @@ function rowTokens(row) {
 function scoreRow(row, phrases, codes) {
   let score = 0;
   let evidence = false;
-  for (const c of codes) if (row[COL.codes].includes(c)) { score += 5; evidence = true; }
+  // A code hit counts once, however many codes match: family codes such as PSC "7E20" (all end-user
+  // IT hardware) are real evidence but weaker than the words the person actually typed.
+  if (codes.some((c) => row[COL.codes].includes(c))) { score += 4; evidence = true; }
   const tokens = rowTokens(row);
   for (const { ws, need, weight } of phrases) {
     let hit = 0;
@@ -106,7 +108,7 @@ function buildPhrases(params) {
     phrases.push({ ws, need: ws.length <= 2 ? ws.length : ws.length - 1, weight });
   };
   add((params.keywords || []).join(" "), 10);          // the user's own words rank highest
-  for (const t of params.matchedTerms || []) add(t, 3);
+  for (const t of params.matchedTerms || []) add(t, 5);
   return phrases;
 }
 

@@ -61,7 +61,8 @@ export default async (request) => {
   const term = safeTerm(body.term);
   const matched = cpvCodes.length > 0;
   const startedAt = Date.now();
-  const pscCodes = (body.pscCodes || []).slice(0, 5).map((c) => String(c).replace(/\D/g, "")).filter(Boolean);
+  // PSC codes are alphanumeric ("7E20", "Y1LB"); a prefix such as "Y1" matches a whole family.
+  const pscCodes = (body.pscCodes || []).slice(0, 16).map((c) => String(c).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4)).filter(Boolean);
   const naicsCodes = (body.naicsCodes || []).slice(0, 5).map((c) => String(c).replace(/\D/g, "")).filter(Boolean);
   // Cached sources load their index from this site's own CDN, so they need the origin.
   const origin = new URL(request.url).origin;

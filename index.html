@@ -441,7 +441,7 @@ function matchCodes(text,map){
   for(const entry of map.entries){
     for(const term of [...entry.terms].sort((a,b)=>b.length-a.length)){
       if(q.includes(term.toLowerCase())){
-        hits.push({label:entry.label,cpv:entry.cpv,matched:term});
+        hits.push({label:entry.label,cpv:entry.cpv,psc:entry.psc||[],matched:term});
         break;
       }
     }
@@ -543,6 +543,7 @@ async function run(){
       keywords:text.split(/\s+/).slice(0,6),   // national portals search words, not codes
       curatedLabels:hits.map(h=>h.label),
       matchedTerms:hits.map(h=>h.matched),   // cached sources match these as whole phrases
+      pscCodes:[...new Set(hits.flatMap(h=>h.psc))],   // SAM.gov rows carry PSC, not CPV
       country:$("country").value,
       daysBack:90,limit:40,
       term:text                      // for telemetry only; filtered and truncated server-side

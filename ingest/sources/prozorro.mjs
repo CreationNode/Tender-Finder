@@ -21,7 +21,9 @@ export const source = "PROZORRO";
 export const label = "Prozorro (Ukraine)";
 
 const API = process.env.PROZORRO_API || "https://public.api.openprocurement.org/api/2.5/tenders";
-const OPT_FIELDS = "status,title,title_en,tenderID,value,tenderPeriod,procuringEntity";
+// `items` carries each lot's ДК 021 classification, which IS CPV 2008. Titles are Ukrainian, so
+// without these codes the index was unreachable to anyone searching in English.
+const OPT_FIELDS = "status,title,title_en,tenderID,value,tenderPeriod,procuringEntity,items";
 
 // Statuses that mean "you can still bid". Everything else (complete, cancelled, unsuccessful,
 // awarded) is history, not opportunity.
@@ -35,6 +37,24 @@ function isoDate(value) {
   if (!value) return "";
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
   return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
+}
+
+/** ДК 021:2015 codes ("42120000-6") are CPV codes with a check digit; keep the 8-digit code. */
+function cpvCodes(t) {
+  const out = [];
+  const push = (c) => {
+    if (!c?.id) return;
+    const scheme = String(c.scheme || "").toUpperCase();
+    if (scheme && !/ДК ?021|CPV/.test(scheme)) return;   // skip ДК 003/016 etc.
+    const m = /^(\d{8})/.exec(String(c.id));
+    if (m) out.push(m[1]);
+  };
+  push(t.classification);
+  for (const item of t.items || []) {
+    push(item.classification);
+    for (const c of item.additionalClassifications || []) push(c);
+  }
+  return [...new Set(out)].slice(0, 6);
 }
 
 function toNoticeRow(t) {
@@ -54,7 +74,10 @@ function toNoticeRow(t) {
     country: "UKR",
     deadline,
     published: isoDate(t.tenderPeriod?.startDate) || isoDate(t.dateModified),
-    codes: amount ? `${Math.round(amount)} ${currency}` : "",
+    codes: [
+      ...cpvCodes(t).map((c) => `CPV ${c}`),
+      amount ? `${Math.round(amount)} ${currency}` : "",
+    ].filter(Boolean).join(" · "),
     // Prozorro's public front end resolves tenders by their internal id.
     link: t.id ? `https://prozorro.gov.ua/tender/${encodeURIComponent(t.tenderID || t.id)}` : "https://prozorro.gov.ua",
   });
