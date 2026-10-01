@@ -51,8 +51,12 @@ git status --porcelain | Select-String "\.env"    # must return nothing
 publish anything. This is the most common single point of failure in the whole setup.
 
 **Run it once by hand** — Actions tab → "Ingest tender sources" → Run workflow. Then read the
-**Report** and **"Fail only if every source failed"** steps: they print which sources succeeded with
-row counts, and why any failed.
+**Report** and **Verdict** steps: they print which sources refreshed with row counts, and why any
+failed. The run is red when a source with data failed (it is now serving yesterday's index), when a
+source was not attempted (the 48-minute run limit, `INGEST_RUN_MINUTES`, was reached), or when
+nothing was ingested. A source that has never had data (CanadaBuys) is only a warning. If the
+`indexes` branch exists but cannot be fetched, the run stops before ingesting and publishes nothing,
+so a network blip can never overwrite the published data with a cold start.
 
 ## 1.2 Where indexes live (decide once)
 
