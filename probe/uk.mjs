@@ -1,16 +1,12 @@
-const UA = "Mozilla/5.0 (compatible; WhatTheyBuy/1.0; +https://github.com/CreationNode/Tender-Finder)";
-const title = async (u) => { const r = await fetch(u, { headers: { "user-agent": UA }, redirect: "follow" }); const t = await r.text(); return `${r.status} ${r.url.slice(0, 100)} | ${(/<title>([^<]*)/i.exec(t) || [])[1]?.trim().slice(0, 70)}`; };
-const j = async (u) => (await fetch(u, { headers: { "user-agent": UA, accept: "application/json" } })).json();
-const to = new Date().toISOString().slice(0, 19), from = new Date(Date.now() - 2 * 864e5).toISOString().slice(0, 19);
-const base = "https://www.contractsfinder.service.gov.uk/Published/Notices/OCDS/Search";
-for (const q of [`stages=planning,tender`, `stages=tender`, `stages=planning`, ``, `stages=tender&limit=100&cursor=`]) {
-  const p = await j(`${base}?publishedFrom=${from}&publishedTo=${to}&${q}`);
-  const tags = {}; for (const r of p.releases || []) for (const t of r.tag || []) tags[t] = (tags[t] || 0) + 1;
-  console.log(`CF [${q}] releases ${p.releases?.length} tags ${JSON.stringify(tags)} keys ${Object.keys(p).join(",")}`);
-}
-const p = await j(`${base}?publishedFrom=${from}&publishedTo=${to}&stages=tender`);
-for (const r of (p.releases || []).slice(0, 3)) { const u = (r.tender?.documents || []).map((d) => d.url).find((x) => /\/Notice\//i.test(x)); console.log("doc url", u, "->", u && await title(u)); }
-// one-day windows: does a 1-day window return more per day than a 2-day one? (cap check)
-for (let d = 1; d <= 3; d++) { const a = new Date(Date.now() - d * 864e5).toISOString().slice(0, 10); const pp = await j(`${base}?publishedFrom=${a}T00:00:00&publishedTo=${a}T23:59:59`); console.log(`CF day ${a}: ${pp.releases?.length}`); }
-const s = await (await fetch("https://www.contractsfinder.service.gov.uk/api/rest/2/search_notices/json", { method: "POST", headers: { "user-agent": UA, "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ searchCriteria: { types: ["Contract"], statuses: ["Open"], publishedFrom: null }, size: 1 }) })).text();
-console.log("CF v2 search open:", s.slice(0, 300));
+const UA = "WhatTheyBuy/1.0 (+https://whattheybuy.org)";
+const url = "https://www.contractsfinder.service.gov.uk/api/rest/2/search_notices/json";
+const post = async (body) => { const r = await fetch(url, { method: "POST", headers: { "user-agent": UA, "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(body) }); return { status: r.status, text: await r.text() }; };
+let r = await post({ searchCriteria: { types: ["Contract"], statuses: ["Open"] }, size: 2 });
+console.log("status", r.status); const j = JSON.parse(r.text); console.log("top keys", Object.keys(j), "hitCount", j.hitCount);
+console.log(JSON.stringify(j.noticeList?.[0], null, 1));
+for (const size of [1000, 2000]) { r = await post({ searchCriteria: { types: ["Contract"], statuses: ["Open"] }, size }); const k = JSON.parse(r.text); console.log(`size ${size}: status ${r.status} got ${k.noticeList?.length} of ${k.hitCount} bytes ${r.text.length}`); }
+r = await post({ searchCriteria: { types: ["Contract", "Pipeline"], statuses: ["Open"] }, size: 1 }); console.log("with pipeline", r.status, r.text.slice(0, 120));
+const types = {}; const k = JSON.parse((await post({ searchCriteria: { types: ["Contract"], statuses: ["Open"] }, size: 1000 })).text);
+for (const n of k.noticeList || []) { const t = `${n.item.noticeType}/${n.item.noticeStatus}/${n.item.parentId ? "child" : "root"}`; types[t] = (types[t] || 0) + 1; }
+console.log("types", JSON.stringify(types)); console.log("no deadline", (k.noticeList || []).filter((n) => !n.item.deadlineDate).length);
+console.log("sample cpv", (k.noticeList || []).slice(0, 5).map((n) => JSON.stringify(n.item.cpvCodes)).join(" | "));
