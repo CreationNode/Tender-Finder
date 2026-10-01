@@ -198,7 +198,7 @@ function renderList(){
     list.innerHTML=`<li class="empty"><b>Nothing open right now for “${esc(term)}”.</b>
       Public buying is seasonal. Try a broader description, all countries, or check again next week.
       If the codes above look wrong for what you do,
-      <a href="https://github.com/CreationNode/Tender-Finder/issues/new?title=${encodeURIComponent('Dictionary: '+term)}&body=${encodeURIComponent('Search term: '+term+'\n\nWhat I supply:\n\nCPV code(s) that would be right (if known):')}" target="_blank" rel="noopener">suggest a better match</a>.</li>`;
+      <a href="mailto:info@whattheybuy.org?subject=${encodeURIComponent('Dictionary: '+term)}&body=${encodeURIComponent('Search term: '+term+'\n\nWhat I supply:\n\nCPV code(s) that would be right (if known):')}">suggest a better match</a>.</li>`;
     return;
   }
   for(const r of rows){
