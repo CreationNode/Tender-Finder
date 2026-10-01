@@ -198,7 +198,7 @@ function renderList(){
     list.innerHTML=`<li class="empty"><b>Nothing open right now for “${esc(term)}”.</b>
       Public buying is seasonal. Try a broader description, all countries, or check again next week.
       If the codes above look wrong for what you do,
-      <a href="mailto:info@whattheybuy.org?subject=${encodeURIComponent('Dictionary: '+term)}&body=${encodeURIComponent('Search term: '+term+'\n\nWhat I supply:\n\nCPV code(s) that would be right (if known):')}">suggest a better match</a>.</li>`;
+      <a href="#suggest" data-suggest="${esc(term)}">suggest a better match</a>.</li>`;
     return;
   }
   for(const r of rows){
@@ -353,3 +353,39 @@ $("country").addEventListener("change",()=>{ if($("what").value.trim()) run(); }
 document.querySelectorAll(".examples button").forEach(b=>{
   b.addEventListener("click",()=>{$("what").value=b.dataset.ex;lastText=b.dataset.ex;run();});
 });
+
+// Suggestion box (Netlify Forms). Sent with fetch so the page stays put; without script the form
+// still posts normally and Netlify redirects back here with ?sent=1.
+const sform=$("suggestform");
+if(sform){
+  const sent=$("sg-sent");
+  if(new URLSearchParams(location.search).has("sent")) sent.textContent="Thanks. Your suggestion was sent.";
+  document.addEventListener("click",e=>{
+    const a=e.target.closest("a[data-suggest]");
+    if(!a) return;
+    $("sg-what").value=a.dataset.suggest;
+  });
+  sform.addEventListener("submit",async e=>{
+    e.preventDefault();
+    const btn=sform.querySelector("button");btn.disabled=true;sent.textContent="Sending…";
+    try{
+      const res=await fetch("/",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+        body:new URLSearchParams(new FormData(sform)).toString()});
+      if(!res.ok) throw new Error(res.status);
+      sform.reset();sent.textContent="Thanks. Your suggestion was sent.";
+    }catch{
+      sent.textContent="That didn't go through. Please try again, or email info@whattheybuy.org.";
+    }finally{ btn.disabled=false; }
+  });
+}
+
+// "Added on request": trades added to the dictionary because someone asked. Hidden while empty.
+(async()=>{
+  try{
+    const r=await fetch("data/added-on-request.json");if(!r.ok)return;
+    const items=(await r.json()).items||[];if(!items.length)return;
+    $("ledger").innerHTML=items.slice(0,12).map(x=>
+      `<li><span class="d">${esc(x.date||"")}</span><span>${esc(x.trade||"")}<span class="c">${esc((x.codes||[]).join(" · "))}</span></span></li>`).join("");
+    $("requested").hidden=false;
+  }catch{}
+})();
