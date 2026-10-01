@@ -32,6 +32,19 @@ jobs:
         with:
           node-version: "20"
 
+      # Restore yesterday's indexes, cursors and manifest from the data branch. Without this every
+      # run was a cold start: incremental feeds (Prozorro, UK) re-seeded from scratch, closed notices
+      # were never removed from a merged index, and the yield canary always compared against "no
+      # previous index", so it could never block a bad run.
+      - name: Restore previous indexes
+        run: |
+          if git fetch -q --depth 1 origin indexes; then
+            git checkout FETCH_HEAD -- data/index && git reset -q data/index
+            ls -la data/index
+          else
+            echo "No indexes branch yet: cold start."
+          fi
+
       # run.mjs exits 1 if ANY source failed. That must not turn the whole job red: the last step
       # below is the real verdict (red only when nothing was ingested), so one blocked portal such
       # as CanadaBuys does not make every daily run look broken.
