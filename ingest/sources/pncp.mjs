@@ -1,0 +1,132 @@
+// Ingest: PNCP — Brazil's Portal Nacional de Contratações Públicas.
+//
+// Since Lei 14.133/2021 every public buyer in Brazil (federal, state and municipal) must publish its
+// procurements on PNCP, so one source covers the whole country. Its public consultation API has an
+// endpoint for exactly what this tool wants: procurements still accepting proposals.
+//
+//   GET /api/consulta/v1/contratacoes/proposta?dataFinal=YYYYMMDD&pagina=N&tamanhoPagina=50
+//
+// VERIFIED from a GitHub runner (2026-10-01): keyless, JSON, ~27,000 open procurements closing in
+// the next 60 days, ordered oldest-published first. Page size is capped at 50 (500 returns HTTP 400),
+// so a full sweep is ~550 requests. PNCP serves no robots.txt (404) and documents the API publicly.
+//
+// That is too many requests to repeat in full every day without being a nuisance, so each run:
+//   1. reads the LAST pages first, where newly published procurements land, and
+//   2. spends the rest of its budget continuing a ring cursor through the older pages.
+// Rows merge into the previous index; anything past its closing date is pruned. A procurement
+// cancelled before its deadline can linger until the ring revisits it, at most a few days.
+//
+// Titles are Portuguese and PNCP carries no CPV codes. English searches reach these rows through the
+// Portuguese terms in data/cpv-map.json (`pt`), which the search page sends alongside the query.
+
+import { toRow } from "../lib/index-format.mjs";
+import { politeFetch } from "../lib/http.mjs";
+
+export const source = "PNCP";
+export const label = "PNCP (Brazil)";
+
+const API = process.env.PNCP_API || "https://pncp.gov.br/api/consulta/v1/contratacoes/proposta";
+const PAGE_SIZE = 50;
+
+const ymd = (d) => d.toISOString().slice(0, 10).replace(/-/g, "");
+const isoDate = (v) => (/^(\d{4}-\d{2}-\d{2})/.exec(String(v || "")) || [])[1] || "";
+const clean = (s) => String(s || "").replace(/\s+/g, " ").trim();
+
+function toNoticeRow(c) {
+  const cnpj = c.orgaoEntidade?.cnpj;
+  const u = c.unidadeOrgao || {};
+  const place = [u.municipioNome, u.ufSigla].filter(Boolean).join("/");
+  const unit = clean(u.nomeUnidade || c.orgaoEntidade?.razaoSocial);
+  const amount = Number(c.valorTotalEstimado);
+  return toRow({
+    id: c.numeroControlePNCP ? `BR-${c.numeroControlePNCP}` : "",
+    title: clean(c.objetoCompra),
+    buyer: place ? `${unit} (${place})` : unit,
+    country: "BRA",
+    deadline: isoDate(c.dataEncerramentoProposta),
+    published: isoDate(c.dataPublicacaoPncp),
+    codes: amount > 1 ? `${Math.round(amount)} BRL` : "",
+    link: cnpj && c.anoCompra && c.sequencialCompra
+      ? `https://pncp.gov.br/app/editais/${cnpj}/${c.anoCompra}/${c.sequencialCompra}`
+      : "https://pncp.gov.br/app/editais",
+  });
+}
+
+export async function ingest({ fetchImpl = politeFetch, log = console.log, previousRows = [], previousState = {} } = {}) {
+  const budgetMs = Number(process.env.PNCP_BUDGET_MS || 10 * 60 * 1000);
+  const tailPages = Number(process.env.PNCP_TAIL_PAGES || 20);
+  const horizonDays = Number(process.env.PNCP_HORIZON_DAYS || 180);
+  const startedAt = Date.now();
+  const today = new Date().toISOString().slice(0, 10);
+  const dataFinal = ymd(new Date(Date.now() + horizonDays * 864e5));
+
+  const byId = new Map();
+  for (const row of previousRows) byId.set(row[0], row);
+
+  let requests = 0, kept = 0, failed = 0;
+  const notes = [];
+
+  async function page(n) {
+    const url = `${API}?dataFinal=${dataFinal}&pagina=${n}&tamanhoPagina=${PAGE_SIZE}`;
+    requests++;
+    const res = await fetchImpl(url, { headers: { accept: "application/json" } });
+    if (res.status === 204) return { data: [], totalPaginas: 0 };
+    if (!res.ok) throw new Error(`HTTP ${res.status} on page ${n}`);
+    const body = await res.json();
+    for (const c of body.data || []) {
+      const row = toNoticeRow(c);
+      if (!row[0] || !row[1]) continue;
+      if (row[4] && row[4] < today) { byId.delete(row[0]); continue; }
+      byId.set(row[0], row);
+      kept++;
+    }
+    return body;
+  }
+
+  // Page 1 tells us how many pages exist; a failure here is a real outage, so it throws.
+  const first = await page(1);
+  const totalPages = Number(first.totalPaginas) || 1;
+  log(`PNCP: ${first.totalRegistros} open procurements across ${totalPages} pages (closing by ${dataFinal})`);
+
+  const done = new Set([1]);
+  const visit = async (n) => {
+    if (done.has(n) || n < 1 || n > totalPages) return true;
+    if (Date.now() - startedAt > budgetMs) return false;
+    done.add(n);
+    try { await page(n); }
+    catch (err) {
+      failed++;
+      if (/HTTP 429/.test(err.message)) { notes.push("rate limited; stopping politely"); return false; }
+    }
+    return true;
+  };
+
+  // 1. Newest first: the tail is where today's procurements appear.
+  let ok = true;
+  for (let n = totalPages; ok && n > Math.max(1, totalPages - tailPages); n--) ok = await visit(n);
+
+  // 2. Ring cursor through the rest, resuming where the last run stopped.
+  let cursor = Number(previousState.cursor) || 2;
+  let wrapped = false;
+  while (ok && Date.now() - startedAt < budgetMs && done.size < totalPages) {
+    if (cursor > totalPages) { cursor = 2; wrapped = true; }
+    ok = await visit(cursor);
+    if (ok) cursor++;
+  }
+  if (failed && failed >= requests / 2) {
+    throw new Error(`PNCP: ${failed} of ${requests} page requests failed. Check PNCP_API.`);
+  }
+
+  let expired = 0;
+  for (const [id, row] of byId) if (row[4] && row[4] < today) { byId.delete(id); expired++; }
+
+  const rows = [...byId.values()];
+  log(`PNCP: ${requests} request(s), ${failed} failed, ${kept} rows refreshed, ${expired} expired pruned; index now ${rows.length}`);
+  notes.push(`requests ${requests}`, `failed ${failed}`, `pages ${totalPages}`, `cursor ${cursor}`, wrapped ? "ring wrapped" : "ring continuing");
+
+  return {
+    rows,
+    notes,
+    state: { cursor, totalPages, updatedAt: new Date().toISOString() },
+  };
+}

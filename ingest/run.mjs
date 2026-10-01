@@ -21,11 +21,12 @@ import * as prozorro from "./sources/prozorro.mjs";
 import * as ukFts from "./sources/uk-fts.mjs";
 import * as ukCf from "./sources/uk-cf.mjs";
 import * as austender from "./sources/austender.mjs";
+import * as pncp from "./sources/pncp.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(HERE, "..", "data", "index");
 
-const INGESTERS = { sam: samBulk, canadabuys, prozorro, ukfts: ukFts, ukcf: ukCf, austender };
+const INGESTERS = { sam: samBulk, canadabuys, prozorro, ukfts: ukFts, ukcf: ukCf, austender, pncp };
 
 function readJson(file, fallback = null) {
   try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return fallback; }
