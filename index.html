@@ -36,355 +36,317 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+  /* Monochrome by design: black ink on white paper, tall condensed headlines, a book serif for
+     reading, and scanned dot-matrix "printout" strips as the only ornament. Urgency is shown by
+     inverting to solid black rather than by colour, so the page still reads in greyscale print. */
   :root{
-    --paper:#faf9f6;
-    --ink:#15202b;
-    --ink-soft:#4a5763;
-    --rule:#ddd8cc;
-    --signal:#1f6b4a;        /* procurement green — used only for live/actionable things */
-    --signal-soft:#e8f1ec;
-    --urgent:#a8431f;        /* closing soon */
-    --code-bg:#eeece4;
-    --display:"Archivo",system-ui,sans-serif;
-    --body:"Source Sans 3",system-ui,sans-serif;
-    --mono:"IBM Plex Mono",ui-monospace,monospace;
+    color-scheme:light;
+    --paper:#ffffff;
+    --ink:#0b0b0b;
+    --ink-2:#555555;
+    --ink-3:#8a8a8a;
+    --faint:#efefec;
+    --hair:1px solid #0b0b0b;
+    --cond:"Barlow Condensed","Arial Narrow",sans-serif;
+    --serif:"Crimson Pro",Georgia,serif;
+    --mono:"JetBrains Mono",ui-monospace,monospace;
   }
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
-  body{
-    margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);
-    font-size:17px;line-height:1.55;
-  }
-  .wrap{max-width:53rem;margin:0 auto;padding:0 1.25rem}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:18px;line-height:1.45;overflow-x:hidden}
+  a{color:inherit}
+  button,input,select{font:inherit;color:inherit}
+  :focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+  .wrap{max-width:74rem;margin:0 auto;padding:0 16px;position:relative}
+  @media (min-width:720px){.wrap{padding:0 2rem}}
+  .label{font-family:var(--cond);font-weight:600;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase}
 
-  /* ---------- masthead: this is a public register, so it says so ---------- */
-  header{border-bottom:1.5px solid var(--ink);margin-bottom:2.5rem}
-  .masthead{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;padding:1rem 0 .85rem;flex-wrap:wrap}
-  .mark{font-family:var(--mono);font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)}
-  .mark b{color:var(--ink);font-weight:600}
-  .src{font-family:var(--mono);font-size:.7rem;color:var(--ink-soft)}
+  /* ---------- printout strips (decoration, generated in script) ---------- */
+  .strip{position:absolute;pointer-events:none;z-index:0;width:13rem;padding:.6rem .5rem;
+    font-family:var(--mono);font-size:10px;line-height:1.25;letter-spacing:.08em;color:#1a1a1a;
+    white-space:pre;overflow:hidden;background:
+      repeating-linear-gradient(0deg,transparent 0 3px,rgba(0,0,0,.035) 3px 4px),
+      linear-gradient(90deg,#f4f4f1,#fdfdfb 40%,#ecece8);
+    border-left:1px dashed #9a9a9a;border-right:1px dashed #9a9a9a;
+    filter:url(#scan) grayscale(1) contrast(1.15);opacity:.9;
+    -webkit-mask-image:linear-gradient(180deg,transparent,#000 12%,#000 85%,transparent);
+            mask-image:linear-gradient(180deg,transparent,#000 12%,#000 85%,transparent)}
+  /* Strips live in the page margins: decoration must never sit under text people need to read. */
+  body{position:relative}
+  .strip{width:10rem}
+  .strip.a{left:calc(50% - 37rem - 9.5rem);top:3.5rem;height:36rem;transform:rotate(-8deg)}
+  .strip.b{right:calc(50% - 37rem - 9.5rem);top:44rem;height:42rem;transform:rotate(5deg)}
+  @media (max-width:1400px){.strip.a{left:-5.5rem}.strip.b{right:-5.5rem}}
+  @media (max-width:1100px){.strip{opacity:.35}}
+  @media (max-width:760px){.strip.a{left:-8rem;top:5rem;height:20rem}.strip.b{display:none}}
 
-  h1{
-    font-family:var(--display);font-weight:800;font-size:clamp(2.1rem,6vw,3.5rem);
-    line-height:1.02;letter-spacing:-.028em;margin:2.2rem 0 .9rem;text-wrap:balance;
-  }
-  .standfirst{font-size:1.12rem;color:var(--ink-soft);max-width:34rem;margin:0 0 2rem}
+  /* ---------- masthead ---------- */
+  header.top{border-bottom:var(--hair);position:relative;z-index:1;background:var(--paper)}
+  .masthead{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.7rem 0;flex-wrap:wrap}
+  .brand{font-family:var(--cond);font-weight:700;font-size:1.05rem;letter-spacing:.14em;text-transform:uppercase}
+  .masthead nav{display:flex;gap:1.2rem}
+  .masthead nav a{font-family:var(--cond);font-weight:600;font-size:.82rem;letter-spacing:.12em;text-transform:uppercase;text-decoration:none}
+  .masthead nav a:hover{text-decoration:underline;text-underline-offset:4px}
 
-  /* ---------- the search ---------- */
-  .ask{margin-bottom:.6rem}
-  label.q{display:block;font-family:var(--display);font-weight:700;font-size:1.02rem;margin-bottom:.5rem}
-  .inputrow{display:flex;gap:.6rem;flex-wrap:wrap}
-  input[type=text]{
-    flex:1 1 22rem;min-width:0;font-family:var(--body);font-size:1.06rem;
-    padding:.85rem .95rem;border:1.5px solid var(--ink);border-radius:2px;background:#fff;color:var(--ink);
-  }
-  input[type=text]:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--signal);outline-offset:2px}
-  select{
-    font-family:var(--body);font-size:.98rem;padding:.85rem .7rem;border:1.5px solid var(--rule);
-    border-radius:2px;background:#fff;color:var(--ink)
-  }
-  button.go{
-    font-family:var(--display);font-weight:700;font-size:1rem;letter-spacing:.01em;
-    padding:.85rem 1.5rem;border:1.5px solid var(--ink);border-radius:2px;
-    background:var(--ink);color:var(--paper);cursor:pointer;
-  }
-  button.go:hover{background:var(--signal);border-color:var(--signal)}
-  button.go[disabled]{opacity:.55;cursor:progress}
-  .examples{font-size:.9rem;color:var(--ink-soft);margin:.7rem 0 0}
-  .examples button{
-    font:inherit;font-size:.87rem;background:none;border:0;border-bottom:1px dotted var(--ink-soft);
-    color:var(--ink-soft);cursor:pointer;padding:0;margin:0 .1rem;
-  }
-  .examples button:hover{color:var(--signal);border-color:var(--signal)}
+  /* ---------- hero + search ---------- */
+  .hero{position:relative;z-index:1;padding:2.5rem 0 1.8rem}
+  h1{font-family:var(--cond);font-weight:700;font-size:clamp(3.2rem,11vw,7.6rem);line-height:.9;
+     letter-spacing:-.01em;margin:0;text-transform:none}
+  h1 .code{display:block;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink)}
+  h1 .code.idle{color:var(--ink-3)}
+  .lede{max-width:34rem;font-size:1.08rem;color:var(--ink-2);margin:1.4rem 0 0}
 
-  /* ---------- SIGNATURE: plain words becoming official codes ---------- */
-  .translate{
-    margin:1.6rem 0 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
-    padding:.9rem 0;display:none;
+  .search{position:relative;z-index:1;display:grid;grid-template-columns:1fr auto auto;gap:0;border:2px solid var(--ink);background:var(--paper);margin-top:2rem}
+  .search input{border:0;padding:1rem 1.1rem;font-size:1.25rem;min-width:0;background:transparent;font-family:var(--serif)}
+  .search input::placeholder{color:var(--ink-3);font-style:italic}
+  .search input:focus-visible{outline:none;box-shadow:inset 0 -3px 0 var(--ink)}
+  .search select{border:0;border-left:2px solid var(--ink);padding:0 2.2rem 0 1rem;background:var(--paper);
+    font-family:var(--cond);font-weight:600;letter-spacing:.06em;text-transform:uppercase;font-size:.95rem;max-width:15rem;
+    -webkit-appearance:none;appearance:none;cursor:pointer;
+    background-image:linear-gradient(45deg,transparent 50%,var(--ink) 50%),linear-gradient(135deg,var(--ink) 50%,transparent 50%);
+    background-position:calc(100% - 1.1rem) 50%,calc(100% - .75rem) 50%;background-size:.35rem .35rem;background-repeat:no-repeat}
+  .search button{border:0;background:var(--ink);color:var(--paper);padding:0 1.7rem;cursor:pointer;
+    font-family:var(--cond);font-weight:700;font-size:1.1rem;letter-spacing:.12em;text-transform:uppercase}
+  .search button:hover{background:#333}
+  .search button[disabled]{cursor:progress;background:#444}
+  @media (max-width:640px){
+    .search{grid-template-columns:1fr 1fr}
+    .search input{grid-column:1/-1;border-bottom:2px solid var(--ink)}
+    .search select{border-left:0;padding:.85rem 2rem .85rem .9rem;max-width:none}
+    .search button{padding:.85rem 1rem}
   }
-  .translate.on{display:block;animation:settle .45s ease both}
-  @keyframes settle{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
-  .tline{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;font-family:var(--mono);font-size:.82rem}
-  .tlabel{color:var(--ink-soft);text-transform:uppercase;letter-spacing:.1em;font-size:.68rem}
-  .said{background:#fff;border:1px solid var(--rule);padding:.2rem .5rem;border-radius:2px}
-  .arrow{color:var(--ink-soft)}
-  .code{
-    background:var(--code-bg);border:1px solid var(--rule);padding:.2rem .5rem;border-radius:2px;
-    font-weight:600;letter-spacing:.02em;
-  }
-  .code.miss{background:#fff;color:var(--ink-soft);font-weight:400}
-  .tnote{font-family:var(--body);font-size:.88rem;color:var(--ink-soft);margin:.55rem 0 0}
-  .official{margin:.7rem 0 0}
-  .official .tlabel{display:block;margin-bottom:.35rem}
-  .pickrow{display:flex;flex-wrap:wrap;gap:.4rem}
-  .pick{
-    font-family:var(--mono);font-size:.76rem;background:#fff;border:1px solid var(--rule);
-    padding:.25rem .5rem;border-radius:2px;cursor:pointer;color:var(--ink-soft);text-align:left;
-  }
-  .pick[aria-pressed=true]{background:var(--signal-soft);border-color:var(--signal);color:var(--signal);font-weight:600}
-  .pick span{font-family:var(--body);color:inherit;opacity:.85;margin-left:.35rem}
-  .suggest{font-size:.86rem;margin:.9rem 0 0}
-  .suggest a{color:var(--signal)}
+  .examples{position:relative;z-index:1;margin:.8rem 0 0;font-size:.95rem;color:var(--ink-2)}
+  .examples button{background:none;border:0;padding:0;margin:0 .15rem;cursor:pointer;font-style:italic;
+    text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;color:var(--ink)}
 
-  /* ---------- results ---------- */
-  .status{font-family:var(--mono);font-size:.8rem;color:var(--ink-soft);margin:2rem 0 .8rem;min-height:1.2em}
+  /* ---------- translation: plain words becoming codes ---------- */
+  .translate{position:relative;z-index:1;margin:1.6rem 0 0;display:none}
+  .translate.on{display:block}
+  .tline{display:flex;flex-wrap:wrap;align-items:baseline;gap:.35rem .6rem;border-top:var(--hair);border-bottom:var(--hair);padding:.55rem 0}
+  .tline .said{font-style:italic}
+  .tline .arrow{font-family:var(--cond);color:var(--ink-3)}
+  .chip{font-family:var(--mono);font-size:.8rem;border:1px solid var(--ink);padding:.05rem .4rem;white-space:nowrap}
+  .chip.psc{border-style:dashed}
+  .chip.miss{border-color:var(--ink-3);color:var(--ink-3)}
+  details.why{margin:.5rem 0 0;font-size:.95rem;color:var(--ink-2)}
+  details.why summary{cursor:pointer;font-family:var(--cond);font-weight:600;letter-spacing:.1em;text-transform:uppercase;font-size:.78rem;color:var(--ink)}
+  details.why p{margin:.4rem 0 0;max-width:44rem}
+  .pickrow{display:flex;flex-wrap:wrap;gap:.35rem;margin:.5rem 0 0}
+  .pick{font-family:var(--mono);font-size:.74rem;background:var(--paper);border:1px solid var(--ink-3);padding:.2rem .45rem;cursor:pointer;text-align:left;color:var(--ink-2)}
+  .pick[aria-pressed=true]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .pick span{font-family:var(--serif);font-size:.85rem;margin-left:.35rem}
+
+  /* ---------- results area ---------- */
+  .results-area{position:relative;z-index:1;display:grid;grid-template-columns:13.5rem 1fr;gap:2.5rem;margin-top:2.2rem;align-items:start}
+  .results-area.empty-state{display:none}
+  @media (max-width:860px){.results-area{grid-template-columns:1fr;gap:1.2rem}}
+  aside.facets{position:sticky;top:1rem;background:var(--paper)}
+  @media (max-width:860px){aside.facets{position:static}}
+  .facet{border-top:var(--hair);padding:.55rem 0 .9rem}
+  .facet h2{font-family:var(--cond);font-weight:700;font-size:.8rem;letter-spacing:.14em;text-transform:uppercase;margin:0 0 .45rem}
+  .facet .opts{display:flex;flex-direction:column;gap:.15rem}
+  @media (max-width:860px){.facet .opts{flex-direction:row;flex-wrap:wrap;gap:.35rem}}
+  .opt{display:flex;justify-content:space-between;gap:.8rem;width:100%;background:none;border:0;padding:.18rem .35rem;margin:0 -.35rem;cursor:pointer;
+    font-family:var(--cond);font-weight:500;font-size:1rem;letter-spacing:.03em;text-align:left}
+  .opt .n{font-variant-numeric:tabular-nums;color:var(--ink-2)}
+  .opt:hover{background:var(--faint)}
+  .opt[aria-pressed=true]{background:var(--ink);color:var(--paper)}
+  .opt[aria-pressed=true] .n{color:var(--paper)}
+  @media (max-width:860px){.opt{width:auto;margin:0;border:1px solid var(--ink)}}
+
+  .status{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap;border-top:2px solid var(--ink);padding:.55rem 0}
+  .status .count{font-family:var(--cond);font-weight:700;font-size:1.6rem;line-height:1}
+  .status .sub{font-family:var(--cond);font-weight:500;letter-spacing:.08em;text-transform:uppercase;font-size:.8rem;color:var(--ink-2)}
+
   ol.results{list-style:none;margin:0;padding:0}
-  li.notice{border-top:1px solid var(--rule);padding:1.15rem 0}
-  li.notice:last-child{border-bottom:1px solid var(--rule)}
-  .meta{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;font-family:var(--mono);font-size:.74rem;color:var(--ink-soft);margin-bottom:.4rem}
-  .pill{border:1px solid var(--rule);padding:.12rem .42rem;border-radius:2px;background:#fff}
-  .pill.days{border-color:var(--signal);color:var(--signal);background:var(--signal-soft);font-weight:600}
-  .pill.days.soon{border-color:var(--urgent);color:var(--urgent);background:#f8ece7}
-  .pill.src{background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:600;letter-spacing:.04em}
-  .pill.also{background:transparent;border-style:dashed}
-  .coverage{font-family:var(--mono);font-size:.72rem;color:var(--ink-soft);margin:.35rem 0 0}
-  .coverage b{color:var(--ink);font-weight:600}
-  .coverage .down{color:var(--urgent)}
-  .notice h3{font-family:var(--display);font-weight:700;font-size:1.13rem;line-height:1.3;margin:0 0 .3rem;letter-spacing:-.012em}
-  .notice h3 a{color:var(--ink);text-decoration:none;border-bottom:1.5px solid var(--rule)}
-  .notice h3 a:hover{color:var(--signal);border-color:var(--signal)}
-  .buyer{font-size:.96rem;color:var(--ink-soft)}
-  .empty{border:1px dashed var(--rule);padding:1.5rem;text-align:center;color:var(--ink-soft);border-radius:2px}
-  .empty b{color:var(--ink);font-family:var(--display)}
-  details.diag{margin-top:1rem;text-align:left;font-family:var(--mono);font-size:.74rem;color:var(--ink-soft)}
-  details.diag summary{cursor:pointer;color:var(--ink);font-family:var(--body);font-size:.88rem}
-  details.diag pre{white-space:pre-wrap;word-break:break-word;background:var(--code-bg);border:1px solid var(--rule);padding:.6rem;border-radius:2px;margin:.5rem 0 0}
+  li.notice{display:grid;grid-template-columns:4.6rem 1fr auto;gap:1.1rem;border-top:var(--hair);padding:.95rem 0;align-items:start}
+  li.notice:last-child{border-bottom:var(--hair)}
+  @media (max-width:560px){li.notice{grid-template-columns:3.8rem 1fr;gap:.8rem}.notice .side{grid-column:2}}
+  .due{border:1.5px solid var(--ink);text-align:center;padding:.3rem 0 .25rem;font-family:var(--cond)}
+  .due b{display:block;font-weight:700;font-size:1.75rem;line-height:1;font-variant-numeric:tabular-nums}
+  .due span{display:block;font-weight:600;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase}
+  .due.soon{background:var(--ink);color:var(--paper)}
+  .due.unknown{border-style:dashed;color:var(--ink-2)}
+  .due.unknown b{font-size:1.05rem;padding:.3rem 0 .15rem}
+  .notice h3{font-family:var(--serif);font-weight:600;font-size:1.18rem;line-height:1.25;margin:0 0 .25rem}
+  .notice h3 a{text-decoration:none;background-image:linear-gradient(var(--ink),var(--ink));background-size:0 1px;background-position:0 100%;background-repeat:no-repeat;transition:background-size .2s}
+  .notice h3 a:hover{background-size:100% 1px}
+  .notice .buyer{font-size:1rem;color:var(--ink-2)}
+  .notice .facts{display:flex;flex-wrap:wrap;gap:.25rem .9rem;margin-top:.35rem;font-family:var(--cond);font-weight:500;font-size:.9rem;letter-spacing:.04em;color:var(--ink-2)}
+  .notice .facts .value{color:var(--ink);font-weight:600}
+  .notice .codes{font-family:var(--mono);font-size:.72rem;color:var(--ink-3);margin-top:.3rem}
+  .notice .side{text-align:right;font-family:var(--cond);font-weight:600;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+  @media (max-width:560px){.notice .side{text-align:left}}
+  .notice .side .src{display:inline-block;border:1px solid var(--ink);padding:.05rem .35rem}
+  .notice .side .also{display:block;color:var(--ink-3);margin-top:.25rem;font-weight:500}
 
-  /* ---------- coverage map: a tile cartogram, one square per country ----------
-     Deliberately schematic rather than a geographic projection: coverage is country-level, and a
-     tile grid makes Malta as legible as Germany. It also cannot mislead about borders. */
-  .mapwrap{margin:0 0 2rem}
-  .maphead{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap;margin-bottom:.6rem}
-  .maptitle{font-family:var(--display);font-weight:700;font-size:.95rem}
-  .legend{display:flex;gap:.9rem;flex-wrap:wrap;font-family:var(--mono);font-size:.68rem;color:var(--ink-soft)}
-  .legend i{display:inline-block;width:.62rem;height:.62rem;border:1px solid var(--rule);margin-right:.28rem;vertical-align:-1px}
-  .lg-deep{background:var(--signal)}
-  .lg-ted{background:#cfe0d6}
-  .lg-none{background:#fff}
-  .lg-hit{background:var(--urgent)}
-  .tilemap{
-    display:grid;grid-template-columns:repeat(13,1fr);gap:3px;
-    max-width:100%;overflow-x:auto;padding:.15rem;
-  }
-  .tile{
-    position:relative;aspect-ratio:1;border:1px solid var(--rule);background:#fff;border-radius:2px;
-    font-family:var(--mono);font-size:.52rem;color:var(--ink-soft);display:flex;align-items:center;
-    justify-content:center;cursor:pointer;padding:0;line-height:1;transition:transform .12s ease;
-  }
-  .tile[data-cov=deep]{background:var(--signal);color:#fff;border-color:var(--signal)}
-  .tile[data-cov=ted]{background:#cfe0d6;color:#33513f;border-color:#b9d2c4}
-  .tile[data-cov=none]{background:#fff;color:#aaa;border-style:dashed;cursor:not-allowed}
-  .tile[data-hits="1"]{background:var(--urgent);color:#fff;border-color:var(--urgent);transform:scale(1.12);z-index:2}
-  .tile:not([data-cov=none]):hover{transform:scale(1.12);z-index:3}
-  .tile:focus-visible{outline:2px solid var(--ink);outline-offset:2px;z-index:4}
-  .tile b{position:absolute;top:-4px;right:-4px;background:var(--ink);color:var(--paper);border-radius:99px;
-    font-size:.5rem;padding:.05rem .22rem;font-weight:600}
-  .mapnote{font-family:var(--body);font-size:.82rem;color:var(--ink-soft);margin:.55rem 0 0}
-  @media (max-width:640px){ .tilemap{grid-template-columns:repeat(13,1.55rem)} .tile{font-size:.48rem} }
+  .empty{border:1.5px dashed var(--ink);padding:1.5rem;font-size:1.05rem}
+  .empty b{font-family:var(--cond);font-weight:700;font-size:1.4rem;display:block;margin-bottom:.3rem}
+  details.diag{margin-top:1rem;font-family:var(--mono);font-size:.74rem}
+  details.diag pre{white-space:pre-wrap;word-break:break-word;background:var(--faint);padding:.6rem;margin:.5rem 0 0}
 
-  footer{border-top:1.5px solid var(--ink);margin-top:3.5rem;padding:1.4rem 0 3rem;font-size:.9rem;color:var(--ink-soft)}
-  footer a{color:var(--ink)}
-  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:1.4rem}
-  h4{font-family:var(--display);font-size:.95rem;margin:0 0 .35rem;color:var(--ink)}
-  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  .coverage{margin-top:1rem;font-family:var(--cond);font-weight:500;font-size:.88rem;letter-spacing:.04em;color:var(--ink-2)}
+  .coverage b{color:var(--ink);font-weight:700}
+  .coverage .down{text-decoration:line-through;text-decoration-thickness:1.5px;color:var(--ink)}
+
+  /* ---------- sources: honest coverage as a table ---------- */
+  section.sources{position:relative;z-index:1;margin-top:5rem}
+  section.sources h2,.about h2{font-family:var(--cond);font-weight:700;font-size:clamp(2.2rem,6vw,3.6rem);line-height:.95;margin:0 0 1rem}
+  .table-scroll{overflow-x:auto;border-top:2px solid var(--ink)}
+  table{border-collapse:collapse;width:100%;min-width:38rem}
+  th,td{text-align:left;vertical-align:top;padding:.55rem .8rem .55rem 0;border-bottom:1px solid var(--ink)}
+  th{font-family:var(--cond);font-weight:700;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase}
+  td{font-size:1rem}
+  td.k{font-family:var(--cond);font-weight:600;font-size:1.02rem;letter-spacing:.03em;white-space:nowrap}
+  td .state{font-family:var(--cond);font-weight:600;font-size:.78rem;letter-spacing:.12em;text-transform:uppercase}
+  td .state.off{text-decoration:line-through}
+  .sources .note{font-size:.95rem;color:var(--ink-2);max-width:44rem}
+
+  .about{position:relative;z-index:1;margin-top:4.5rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:2rem;border-top:2px solid var(--ink);padding-top:1.2rem}
+  .about h3{font-family:var(--cond);font-weight:700;font-size:1.25rem;letter-spacing:.02em;margin:0 0 .35rem}
+  .about p{margin:0;font-size:1rem;color:var(--ink-2)}
+  footer{position:relative;z-index:1;margin:4rem 0 0;border-top:var(--hair);padding:1rem 0 3rem;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+  footer .label{color:var(--ink-2)}
+
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
-<header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- Photocopier grain for the printout strips: a little displacement and speckle, no images. -->
+  <filter id="scan"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/></filter>
+</svg>
+
+<div class="strip a" id="stripA" aria-hidden="true"></div>
+<div class="strip b" id="stripB" aria-hidden="true"></div>
+<header class="top">
   <div class="wrap masthead">
-    <div class="mark"><b>Open Tender Finder</b> · public procurement, plain language</div>
-    <div class="src">live data: TED (EU Official Journal)</div>
+    <div class="brand">Open Tender Finder</div>
+    <nav aria-label="Page"><a href="#sources">Sources</a><a href="#about">About</a></nav>
   </div>
 </header>
 
 <main class="wrap">
-  <h1>What do you make?</h1>
-  <p class="standfirst">
-    Governments buy almost everything — chairs, bread, bandages, software, boats — and they publish
-    it all. The catch is that it's filed under numeric codes, across a dozen different systems. Type
-    what you supply and this searches them at once: EU-wide, French contracts below the EU threshold,
-    US federal, Canadian and Australian federal, UK contracts above and below threshold, and
-    Ukraine's Prozorro.
-  </p>
 
-  <section class="mapwrap" aria-labelledby="maptitle">
-    <div class="maphead">
-      <span class="maptitle" id="maptitle">Where we look</span>
-      <span class="legend">
-        <span><i class="lg-deep"></i>national portal</span>
-        <span><i class="lg-ted"></i>EU-wide only</span>
-        <span><i class="lg-none"></i>not yet</span>
-        <span><i class="lg-hit"></i>results here</span>
-      </span>
-    </div>
-    <div class="tilemap" id="tilemap" role="group" aria-label="Coverage by country — select a country to filter"></div>
-    <p class="mapnote" id="mapnote">Tap a country to search just there. Squares are a schematic layout, not a map projection.</p>
-  </section>
+  <section class="hero">
+    <h1>What do you make?<span class="code idle" id="herocode">(00000000)</span></h1>
+    <p class="lede">Governments buy almost everything and publish it, filed under numeric codes. Say what you supply in plain words; we translate it into those codes and search the official portals at once.</p>
 
-  <div class="ask">
-    <label class="q" for="what">Describe your product or service</label>
-    <div class="inputrow">
-      <input id="what" type="text" autocomplete="off" placeholder="wooden chairs, surgical gloves, road resurfacing…">
-      <select id="country" aria-label="Country">
-        <option value="">Everywhere we cover</option>
-      </select>
-      <button class="go" id="go" type="button">Find tenders</button>
-    </div>
-    <p class="examples">Try:
-      <button type="button" data-ex="office chairs">office chairs</button> ·
-      <button type="button" data-ex="surgical gloves">surgical gloves</button> ·
-      <button type="button" data-ex="school meals catering">school meals catering</button> ·
-      <button type="button" data-ex="solar panels">solar panels</button> ·
+    <form class="search" id="searchform" role="search">
+      <label class="sr" for="what">Describe your product or service</label>
+      <input id="what" type="text" autocomplete="off" placeholder="wooden chairs, surgical gloves, road resurfacing">
+      <label class="sr" for="country">Country</label>
+      <select id="country"><option value="">All countries</option></select>
+      <button id="go" type="submit">Search</button>
+    </form>
+    <p class="examples">Try
+      <button type="button" data-ex="office chairs">office chairs</button>,
+      <button type="button" data-ex="surgical gloves">surgical gloves</button>,
+      <button type="button" data-ex="solar panels">solar panels</button>,
+      <button type="button" data-ex="school meals catering">school meals catering</button>,
       <button type="button" data-ex="translation services">translation services</button>
     </p>
-  </div>
 
-  <!-- signature element: the moment plain words become official codes -->
-  <section class="translate" id="translate" aria-live="polite">
-    <div class="tline" id="tline"></div>
-    <p class="tnote" id="tnote"></p>
-    <div class="official" id="official" hidden>
-      <span class="tlabel">Other official codes that mention your words — tap to include</span>
-      <div class="pickrow" id="pickrow"></div>
+    <section class="translate" id="translate" aria-live="polite">
+      <div class="tline" id="tline"></div>
+      <details class="why" id="why">
+        <summary>Why these results</summary>
+        <p id="tnote"></p>
+        <div id="official" hidden>
+          <p>Other official codes that mention your words. Tap to include them.</p>
+          <div class="pickrow" id="pickrow"></div>
+        </div>
+      </details>
+    </section>
+  </section>
+
+  <section class="results-area empty-state" id="resultsArea" aria-label="Results">
+    <aside class="facets" id="facets" aria-label="Filter results"></aside>
+    <div>
+      <div class="status" id="statusbar"><span class="count" id="status" aria-live="polite"></span><span class="sub" id="substatus"></span></div>
+      <ol class="results" id="results"></ol>
+      <p class="coverage" id="coverage"></p>
     </div>
   </section>
 
-  <p class="status" id="status"></p>
-  <p class="coverage" id="coverage"></p>
-  <ol class="results" id="results"></ol>
+  <section class="sources" id="sources">
+    <h2>Where we look</h2>
+    <p class="note">Every search says which portals answered. A source that is down is shown as down, and data older than two days is marked stale. Countries not listed are covered only by TED, the EU-wide journal, which lists contracts above the EU threshold.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Source</th><th>Covers</th><th>Contracts</th><th>How</th></tr></thead>
+        <tbody>
+          <tr><td class="k">TED</td><td>EU + EEA, 30 countries</td><td>Above EU thresholds</td><td><span class="state">Live</span></td></tr>
+          <tr><td class="k">BOAMP</td><td>France</td><td>Including below threshold</td><td><span class="state">Live</span></td></tr>
+          <tr><td class="k">Find a Tender</td><td>United Kingdom</td><td>Above threshold</td><td><span class="state">Daily</span></td></tr>
+          <tr><td class="k">Contracts Finder</td><td>United Kingdom</td><td>Below threshold</td><td><span class="state">Daily</span></td></tr>
+          <tr><td class="k">SAM.gov</td><td>United States</td><td>Federal</td><td><span class="state">Daily</span></td></tr>
+          <tr><td class="k">Prozorro</td><td>Ukraine</td><td>All public buyers; titles in Ukrainian, matched by code</td><td><span class="state">Daily</span></td></tr>
+          <tr><td class="k">AusTender</td><td>Australia</td><td>Federal; feed has no closing dates</td><td><span class="state">Daily</span></td></tr>
+          <tr><td class="k">CanadaBuys</td><td>Canada</td><td>Federal</td><td><span class="state off">Blocked</span> access requested</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="about" id="about">
+    <div><h3>Why this exists</h3><p>Public contracts are open to anyone, but most small suppliers never see them because the notices are filed under codes they don't know. This is a free translation layer. No account, no cookies, no tracking.</p></div>
+    <div><h3>Read before you bid</h3><p>Closed notices are removed and each result links to its official notice. Australian notices have no deadline in the source feed, so we show them as undated rather than guess. Always confirm details on the official notice.</p></div>
+    <div><h3>Improve it</h3><p>The word-to-code dictionary is one plain JSON file. If your trade is missing, <a href="https://github.com/CreationNode/Tender-Finder">add it or tell us</a>. Contributions welcome.</p></div>
+  </section>
 </main>
 
 <footer class="wrap">
-  <div class="cols">
-    <div>
-      <h4>Why this exists</h4>
-      Public contracts are open to anyone, but most small suppliers never see them because the
-      notices are filed under codes they don't know. This is a free translation layer. No account,
-      no tracking, no data stored.
-    </div>
-    <div>
-      <h4>What you're seeing</h4>
-      Some sources publish less than others: Australian notices carry no closing date or buyer,
-      because the AusTender feed does not include them. Where a deadline is missing we say so rather
-      than guessing.<br><br>
-      Live results from <a href="https://ted.europa.eu">TED</a> (EU Official Journal) and
-      <a href="https://www.boamp.fr">BOAMP</a> (France, including contracts below the EU
-      publication threshold — the ones TED never shows), plus daily-refreshed indexes of
-      <a href="https://sam.gov">SAM.gov</a> (US federal) and
-      <a href="https://canadabuys.canada.ca">CanadaBuys</a>. Each result is tagged with its source.
-      Closed notices are removed. Always confirm details on the official notice before acting.
-    </div>
-    <div>
-      <h4>Improve it</h4>
-      The word-to-code dictionary is a plain JSON file. If your trade is missing, add it — one entry,
-      no code changes. Contributions welcome.
-    </div>
-  </div>
+  <span class="label">Open Tender Finder</span>
+  <span class="label">Open data from official public procurement portals</span>
 </footer>
 
 <script type="module">
 import { rankCpv } from "./assets/rank.mjs";
 
-// Grouped so it is obvious which markets are actually covered, rather than listing every country
-// and silently returning nothing for most of them.
+const $=id=>document.getElementById(id);
+function esc(s){return String(s??"").replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]));}
+
+// Grouped so it is obvious which markets have national sources, rather than listing every country
+// and silently returning little for most of them.
 const COUNTRY_GROUPS=[
-  ["Deep coverage",[["FRA","France (incl. below-threshold)"],["USA","United States (federal)"],["CAN","Canada (federal)"],["UKR","Ukraine (Prozorro)"],["GBR","United Kingdom (incl. below-threshold)"],["AUS","Australia (federal)"]]],
-  ["European Union",[["AUT","Austria"],["BEL","Belgium"],["BGR","Bulgaria"],["HRV","Croatia"],["CYP","Cyprus"],["CZE","Czechia"],["DNK","Denmark"],["EST","Estonia"],["FIN","Finland"],["DEU","Germany"],["GRC","Greece"],["HUN","Hungary"],["IRL","Ireland"],["ITA","Italy"],["LVA","Latvia"],["LTU","Lithuania"],["LUX","Luxembourg"],["MLT","Malta"],["NLD","Netherlands"],["POL","Poland"],["PRT","Portugal"],["ROU","Romania"],["SVK","Slovakia"],["SVN","Slovenia"],["ESP","Spain"],["SWE","Sweden"]]],
-  ["Wider Europe",[["NOR","Norway"],["ISL","Iceland"],["CHE","Switzerland"],["LIE","Liechtenstein"]]],
+  ["National sources",[["GBR","United Kingdom"],["USA","United States"],["FRA","France"],["UKR","Ukraine"],["AUS","Australia"],["CAN","Canada"]]],
+  ["EU-wide (TED) only",[["AUT","Austria"],["BEL","Belgium"],["BGR","Bulgaria"],["HRV","Croatia"],["CYP","Cyprus"],["CZE","Czechia"],["DNK","Denmark"],["EST","Estonia"],["FIN","Finland"],["DEU","Germany"],["GRC","Greece"],["HUN","Hungary"],["IRL","Ireland"],["ITA","Italy"],["LVA","Latvia"],["LTU","Lithuania"],["LUX","Luxembourg"],["MLT","Malta"],["NLD","Netherlands"],["POL","Poland"],["PRT","Portugal"],["ROU","Romania"],["SVK","Slovakia"],["SVN","Slovenia"],["ESP","Spain"],["SWE","Sweden"],["NOR","Norway"],["ISL","Iceland"],["CHE","Switzerland"],["LIE","Liechtenstein"]]],
 ];
-// Build the tile map once. Tiles for covered countries are buttons that set the country filter.
-function buildTileMap(){
-  const grid=document.getElementById("tilemap");
-  for(const [iso,name,col,row,cov] of TILES){
-    const t=document.createElement("button");
-    t.type="button"; t.className="tile"; t.dataset.iso=iso; t.dataset.cov=cov;
-    t.style.gridColumn=col; t.style.gridRow=row;
-    t.textContent=iso;
-    t.setAttribute("aria-label",
-      cov==="none" ? `${name} — not covered yet`
-      : `${name} — ${cov==="deep"?"national portal included":"covered by the EU-wide source"}. Search this country.`);
-    if(cov==="none"){ t.disabled=true; }
-    else t.addEventListener("click",()=>{
-      const selEl=$("country");
-      // Clicking the already-selected country clears the filter — a second tap means "everywhere".
-      selEl.value = selEl.value===iso ? "" : iso;
-      if($("what").value.trim()) run(); else $("what").focus();
-      markSelected();
-    });
-    grid.appendChild(t);
-  }
-  markSelected();
-}
-
-function markSelected(){
-  const cur=$("country").value;
-  document.querySelectorAll(".tile").forEach(t=>{
-    t.setAttribute("aria-pressed", t.dataset.iso===cur ? "true" : "false");
-    t.style.outline = t.dataset.iso===cur ? "2px solid var(--ink)" : "";
-    t.style.outlineOffset = t.dataset.iso===cur ? "1px" : "";
-  });
-}
-
-// After a search, light up the countries that actually returned something.
-function paintResults(results){
-  const counts={};
-  for(const r of results||[]) if(r.country) counts[r.country]=(counts[r.country]||0)+1;
-  document.querySelectorAll(".tile").forEach(t=>{
-    const n=counts[t.dataset.iso]||0;
-    t.dataset.hits = n>0 ? "1" : "0";
-    t.querySelector("b")?.remove();
-    if(n>0){ const b=document.createElement("b"); b.textContent=n>99?"99+":n; t.appendChild(b); }
-  });
-  const hit=Object.keys(counts).length;
-  $("mapnote").textContent = hit
-    ? `Results in ${hit} ${hit===1?"country":"countries"} — highlighted above. Tap a country to narrow to it.`
-    : "Tap a country to search just there. Squares are a schematic layout, not a map projection.";
-}
-
-function clearResultPaint(){
-  document.querySelectorAll(".tile").forEach(t=>{ t.dataset.hits="0"; t.querySelector("b")?.remove(); });
-}
-
-const sel=document.getElementById("country");
+const COUNTRY_NAME=Object.fromEntries(COUNTRY_GROUPS.flatMap(([,l])=>l));
+const sel=$("country");
 for(const [groupName,list] of COUNTRY_GROUPS){
   const g=document.createElement("optgroup");g.label=groupName;
   for(const [code,name] of list){const o=document.createElement("option");o.value=code;o.textContent=name;g.appendChild(o);}
   sel.appendChild(g);
 }
 
-// ---------- coverage tile map ----------
-// [iso3, label, gridColumn, gridRow, coverage]
-// Coverage: "deep" = a national portal is ingested; "ted" = covered only by the EU-wide source;
-// "none" = shown to make the gap visible rather than pretending the world ends at our sources.
-// The layout is a rough geographic arrangement, west to east.
-const TILES=[
-  // Americas
-  ["CAN","Canada",1,1,"deep"], ["USA","United States",1,2,"deep"], ["MEX","Mexico",1,4,"none"],
-  // Northern Europe
-  ["ISL","Iceland",4,1,"ted"], ["NOR","Norway",6,1,"ted"], ["SWE","Sweden",7,1,"ted"], ["FIN","Finland",8,1,"ted"],
-  ["IRL","Ireland",4,2,"ted"], ["GBR","United Kingdom",5,2,"deep"], ["DNK","Denmark",6,2,"ted"],
-  ["EST","Estonia",8,2,"ted"], ["LVA","Latvia",9,2,"ted"],
-  // Central Europe
-  ["BEL","Belgium",4,3,"ted"], ["NLD","Netherlands",5,3,"ted"], ["DEU","Germany",6,3,"ted"],
-  ["POL","Poland",7,3,"ted"], ["LTU","Lithuania",8,3,"ted"],
-  ["FRA","France",4,4,"deep"], ["LUX","Luxembourg",5,4,"ted"], ["CZE","Czechia",6,4,"ted"],
-  ["SVK","Slovakia",7,4,"ted"], ["UKR","Ukraine",8,4,"deep"],
-  // Southern Europe
-  ["PRT","Portugal",3,5,"ted"], ["ESP","Spain",4,5,"ted"], ["CHE","Switzerland",5,5,"ted"],
-  ["AUT","Austria",6,5,"ted"], ["HUN","Hungary",7,5,"ted"], ["ROU","Romania",8,5,"ted"],
-  ["ITA","Italy",5,6,"ted"], ["SVN","Slovenia",6,6,"ted"], ["HRV","Croatia",7,6,"ted"], ["BGR","Bulgaria",8,6,"ted"],
-  ["MLT","Malta",5,7,"ted"], ["GRC","Greece",7,7,"ted"], ["CYP","Cyprus",9,7,"ted"],
-  // Not yet covered — shown so the gaps are visible
-  ["TUR","Turkey",9,6,"none"], ["ISR","Israel",9,8,"none"], ["JPN","Japan",13,3,"none"],
-  // Oceania
-  ["AUS","Australia",12,7,"deep"],
-];
+// ---------- printout strips ----------
+// Dot-matrix style columns of codes and hashes. Seeded, so a given search always prints the same
+// strip; after a search it prints the codes that search actually used.
+function rng(seed){let s=0;for(const c of String(seed))s=(s*31+c.charCodeAt(0))>>>0;return()=>((s=(s*1664525+1013904223)>>>0)/4294967296);}
+function printStrip(el,seed,codes,lines){
+  const r=rng(seed), hex="0123456789abcdef";
+  const out=[];
+  for(let i=0;i<lines;i++){
+    const addr=(0x7a00+i*16).toString(16).padStart(6,"0");
+    let row=addr+"  ";
+    for(let j=0;j<4;j++){let w="";for(let k=0;k<4;k++)w+=hex[Math.floor(r()*16)];row+=w+" ";}
+    if(codes.length&&i%5===2) row=addr+"  "+codes[(i/5|0)%codes.length].padEnd(20," ");
+    out.push(row.trimEnd());
+  }
+  el.textContent=out.join("\n");
+}
+function paintStrips(seed,codes){printStrip($("stripA"),seed+"a",codes,44);printStrip($("stripB"),seed+"b",codes,52);}
+paintStrips("open tender finder",[]);
 
+// ---------- dictionary + full vocabulary ----------
 let MAP=null, FULL=null, FULL_TRIED=false;
 const EXTRA=new Set();               // official codes the user has opted into
-const $=id=>document.getElementById(id);
 
 async function loadMap(){
   if(MAP) return MAP;
@@ -394,8 +356,7 @@ async function loadMap(){
 }
 
 // The complete CPV vocabulary is optional: it is generated from the official EU file by
-// tools/build-cpv-list.mjs. If it hasn't been generated, everything still works on the curated
-// dictionary alone — we just don't offer the extra suggestions.
+// tools/build-cpv-list.mjs. Without it everything still works on the curated dictionary alone.
 async function loadFull(){
   if(FULL||FULL_TRIED) return FULL;
   FULL_TRIED=true;
@@ -408,29 +369,10 @@ async function loadFull(){
   return FULL;
 }
 
-// Ranking lives in assets/rank.mjs so the site and tools/rank-test.mjs share one implementation —
-// a ranking bug is only visible against the real vocabulary, so it must be testable offline.
+// Ranking lives in assets/rank.mjs so the site and tools/rank-test.mjs share one implementation.
 function searchFull(text,exclude){
   if(!FULL) return [];
   return rankCpv(text,FULL,exclude,8);
-}
-
-function renderOfficial(suggestions){
-  const box=$("official"), row=$("pickrow");
-  row.innerHTML="";
-  if(!suggestions.length){box.hidden=true;return;}
-  box.hidden=false;
-  for(const s of suggestions){
-    const b=document.createElement("button");
-    b.type="button";b.className="pick";b.setAttribute("aria-pressed",EXTRA.has(s.code)?"true":"false");
-    b.innerHTML=`${s.code}<span>${esc(s.label)}</span>`;
-    b.addEventListener("click",()=>{
-      if(EXTRA.has(s.code)) EXTRA.delete(s.code); else EXTRA.add(s.code);
-      b.setAttribute("aria-pressed",EXTRA.has(s.code)?"true":"false");
-      run();
-    });
-    row.appendChild(b);
-  }
 }
 
 // Match the user's words against the dictionary. Longest term first so "office chair" beats "chair".
@@ -446,88 +388,175 @@ function matchCodes(text,map){
       }
     }
   }
-  // Most specific first: an entry matched by a longer phrase is a better fit.
   return hits.sort((a,b)=>b.matched.length-a.matched.length).slice(0,4);
 }
 
+function renderOfficial(suggestions){
+  const box=$("official"), row=$("pickrow");
+  row.innerHTML="";
+  if(!suggestions.length){box.hidden=true;return;}
+  box.hidden=false;
+  for(const s of suggestions){
+    const b=document.createElement("button");
+    b.type="button";b.className="pick";b.setAttribute("aria-pressed",EXTRA.has(s.code)?"true":"false");
+    b.innerHTML=`${esc(s.code)}<span>${esc(s.label)}</span>`;
+    b.addEventListener("click",()=>{
+      if(EXTRA.has(s.code)) EXTRA.delete(s.code); else EXTRA.add(s.code);
+      b.setAttribute("aria-pressed",EXTRA.has(s.code)?"true":"false");
+      run();
+    });
+    row.appendChild(b);
+  }
+}
+
 function renderTranslation(text,hits){
-  const line=$("tline"),note=$("tnote");
+  const line=$("tline");
   line.innerHTML="";
   const add=(cls,txt)=>{const s=document.createElement("span");s.className=cls;s.textContent=txt;line.appendChild(s);};
-  add("tlabel","you said");
-  add("said",text);
+  add("said","“"+text+"”");
   add("arrow","→");
-  add("tlabel","official code");
-  if(hits.length){
-    const codes=[...new Set(hits.flatMap(h=>h.cpv))].slice(0,6);
-    codes.forEach(c=>add("code",c));
-    note.textContent=hits.map(h=>h.label).join(" · ")+" — these are the CPV codes buyers file this under.";
+  const cpv=[...new Set(hits.flatMap(h=>h.cpv))].slice(0,6);
+  const psc=[...new Set(hits.flatMap(h=>h.psc))].slice(0,4);
+  if(cpv.length){
+    cpv.forEach(c=>add("chip","CPV "+c));
+    psc.forEach(c=>add("chip psc","PSC "+c));
+    $("tnote").textContent=`Matched ${hits.map(h=>`“${h.matched}”`).join(", ")} in our dictionary (${hits.map(h=>h.label).join("; ")}). CPV is the EU's classification for public contracts; PSC is the US equivalent. Notices are found by these codes and by your own words; results that match your exact words rank first.`;
+    $("herocode").textContent="("+cpv[0]+")";
+    $("herocode").classList.remove("idle");
   }else{
-    add("code miss","no exact code");
-    note.textContent="No dictionary match, so we'll search the notice text for your words instead. Results may be broader.";
+    add("chip miss","no dictionary match");
+    $("tnote").textContent="None of your words are in our dictionary yet, so we search the notice text for them instead. Results may be broader. If your trade is missing, tell us and we'll add it.";
+    $("herocode").textContent="(00000000)";
+    $("herocode").classList.add("idle");
   }
+  paintStrips(text,[...cpv.map(c=>"CPV "+c),...psc.map(c=>"PSC "+c)]);
   $("translate").classList.add("on");
 }
 
-function pill(text,cls){return `<span class="pill ${cls||""}">${text}</span>`;}
-function esc(s){return String(s??"").replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));}
+// ---------- results ----------
+// Cached rows put the value at the end of the codes string ("CPV 45261215 · 88000 GBP").
+function splitCodes(raw){
+  const parts=String(raw||"").split(" · ").filter(Boolean);
+  let value=null;
+  const last=parts[parts.length-1]||"";
+  const m=/^(\d+(?:\.\d+)?) ([A-Z]{3})$/.exec(last);
+  if(m){value={amount:Number(m[1]),currency:m[2]};parts.pop();}
+  return {codes:parts,value};
+}
+function money(v){
+  if(!v||!(v.amount>1)) return "";   // "1 GBP" placeholders are not a real estimate
+  try{return new Intl.NumberFormat("en-GB",{style:"currency",currency:v.currency,maximumFractionDigits:0,notation:v.amount>=1e7?"compact":"standard"}).format(v.amount);}
+  catch{return `${Math.round(v.amount).toLocaleString("en-GB")} ${v.currency}`;}
+}
 
-function renderResults(data,term){
+let LAST={results:[],sources:[],term:""};
+const FILTER={country:"",source:"",within:""};
+
+function dueBlock(r){
+  if(r.daysLeft===null||r.daysLeft===undefined) return `<div class="due unknown" title="The source publishes no closing date"><b>n/a</b><span>no date</span></div>`;
+  const soon=r.daysLeft<=7;
+  if(r.daysLeft===0) return `<div class="due soon"><b>0</b><span>today</span></div>`;
+  return `<div class="due${soon?" soon":""}" title="Closes ${esc(r.deadline)}"><b>${r.daysLeft}</b><span>${r.daysLeft===1?"day":"days"}</span></div>`;
+}
+
+function renderList(){
   const list=$("results");list.innerHTML="";
-  if(!data.results.length){
-    list.innerHTML=`<div class="empty"><b>Nothing open right now for “${esc(term)}”.</b><br>
-      Public buying is seasonal — try a broader description, widen to all countries, or check again next week.
-      <p class="suggest">If the codes above look wrong for what you do,
-      <a href="https://github.com/CreationNode/Tender-Finder/issues/new?title=${encodeURIComponent('Dictionary: '+term)}&body=${encodeURIComponent('Search term: '+term+'\n\nWhat I supply:\n\nCPV code(s) that would be right (if known):')}" target="_blank" rel="noopener">suggest a better match</a>.</p></div>`;
+  const rows=LAST.results.filter(r=>
+    (!FILTER.country||r.country===FILTER.country)&&
+    (!FILTER.source||r.source===FILTER.source)&&
+    (!FILTER.within||(r.daysLeft!==null&&r.daysLeft!==undefined&&r.daysLeft<=Number(FILTER.within))));
+  const n=rows.length, total=LAST.results.length;
+  $("status").textContent=`${n} open ${n===1?"tender":"tenders"}`;
+  $("substatus").textContent=n===total?"closing soonest first":`filtered from ${total}`;
+  if(!total){
+    const term=LAST.term;
+    list.innerHTML=`<li class="empty"><b>Nothing open right now for “${esc(term)}”.</b>
+      Public buying is seasonal. Try a broader description, all countries, or check again next week.
+      If the codes above look wrong for what you do,
+      <a href="https://github.com/CreationNode/Tender-Finder/issues/new?title=${encodeURIComponent('Dictionary: '+term)}&body=${encodeURIComponent('Search term: '+term+'\n\nWhat I supply:\n\nCPV code(s) that would be right (if known):')}" target="_blank" rel="noopener">suggest a better match</a>.</li>`;
     return;
   }
-  for(const r of data.results){
+  for(const r of rows){
+    const {codes,value}=splitCodes(r.cpv);
     const li=document.createElement("li");li.className="notice";
-    const days=r.daysLeft===null?"":pill(r.daysLeft===0?"closes today":r.daysLeft+" days left","days"+(r.daysLeft<=7?" soon":""));
-    const also=(r.alsoOn||[]).map(x=>pill("also "+esc(x),"also")).join("");
+    const facts=[
+      r.buyer?null:"Buyer not stated",
+      COUNTRY_NAME[r.country]||r.country,
+      r.deadline?"closes "+r.deadline:null,
+    ].filter(Boolean);
+    const val=money(value);
     li.innerHTML=`
-      <div class="meta">${pill(esc(r.source||"?"),"src")}${also}${days}${r.country?pill(esc(r.country)):""}${r.cpv?pill((/^(CPV|PSC|NAICS|GSIN|UNSPSC) /.test(r.cpv)?"":"CPV ")+esc(r.cpv)):""}${r.deadline?pill("closes "+esc(r.deadline)):""}</div>
-      <h3><a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a></h3>
-      <div class="buyer">${esc(r.buyer)||"Buyer not stated"}${r.value?" · est. "+esc(r.value)+" "+esc(r.currency):""}</div>`;
+      ${dueBlock(r)}
+      <div>
+        <h3><a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a></h3>
+        ${r.buyer?`<div class="buyer">${esc(r.buyer)}</div>`:""}
+        <div class="facts">${val?`<span class="value">${esc(val)}</span>`:""}${facts.map(f=>`<span>${esc(f)}</span>`).join("")}</div>
+        ${codes.length?`<div class="codes">${esc(codes.slice(0,4).join(" · "))}</div>`:""}
+      </div>
+      <div class="side"><span class="src">${esc(r.source||"?")}</span>${(r.alsoOn||[]).map(x=>`<span class="also">also ${esc(x)}</span>`).join("")}</div>`;
     list.appendChild(li);
   }
+}
+
+// Facets replace the old tile map: after a search, the countries and sources that actually
+// returned something, with counts, as filters.
+function renderFacets(){
+  const box=$("facets");box.innerHTML="";
+  const count=(key)=>{const m={};for(const r of LAST.results){const k=r[key];if(k)m[k]=(m[k]||0)+1;}return Object.entries(m).sort((a,b)=>b[1]-a[1]);};
+  const group=(title,key,entries,labelOf)=>{
+    if(!entries.length) return;
+    const f=document.createElement("div");f.className="facet";
+    f.innerHTML=`<h2>${title}</h2><div class="opts"></div>`;
+    const opts=f.querySelector(".opts");
+    for(const [val,n] of entries){
+      const b=document.createElement("button");b.type="button";b.className="opt";
+      b.setAttribute("aria-pressed",FILTER[key]===val?"true":"false");
+      b.innerHTML=`<span>${esc(labelOf(val))}</span><span class="n">${n}</span>`;
+      b.addEventListener("click",()=>{FILTER[key]=FILTER[key]===val?"":val;renderFacets();renderList();});
+      opts.appendChild(b);
+    }
+    box.appendChild(f);
+  };
+  group("Country","country",count("country"),v=>COUNTRY_NAME[v]||v);
+  group("Source","source",count("source"),v=>v);
+  const within=[["7","Within 7 days"],["30","Within 30 days"]]
+    .map(([d,label])=>[d,LAST.results.filter(r=>r.daysLeft!==null&&r.daysLeft!==undefined&&r.daysLeft<=Number(d)).length,label])
+    .filter(([,n])=>n>0);
+  if(within.length) group("Closing","within",within.map(([d,n])=>[d,n]),v=>within.find(w=>w[0]===v)[2]);
 }
 
 // Say plainly which portals answered and which did not. A public tool should never imply it
 // searched everywhere when one source was down.
 function renderCoverage(sources){
   const el=$("coverage");
-  if(!sources.length){el.textContent="";return;}
-  const parts=sources.map(s=>{
-    if(s.skipped){return `<span>${esc(s.source)}: ${esc(s.skipped==="disabled"?"off":"not in scope")}</span>`;}
-    if(s.error){return `<span class="down">${esc(s.source)}: unavailable</span>`;}
+  const asked=sources.filter(s=>!s.skipped);
+  if(!asked.length){el.textContent="";return;}
+  const parts=asked.map(s=>{
+    if(s.error) return `<span class="down">${esc(s.source)}</span> unavailable`;
     if(s.found===0){
       const diag=(s.diagnostics||[]).join(" ");
       const why=/index .* not available/.test(diag)?"index not built yet"
                :/EXPIRED|rejected/.test(diag)?"key expired"
                :/rate limit/.test(diag)?"rate limited"
-               :"no results";
-      return `<span class="${why==="no results"?"":"down"}">${esc(s.source)}: ${why}</span>`;
+               :/HTTP|timed out|abort/i.test(diag)?"unavailable"
+               :"0 found";
+      return why==="0 found"?`${esc(s.source)} 0`:`<span class="down">${esc(s.source)}</span> ${why}`;
     }
-    // Cached sources: show how fresh the index is, and flag it loudly when it stops refreshing.
     if(typeof s.ageHours==="number"){
       const stale=(s.diagnostics||[]).some(d=>/STALE/.test(d));
       const age=s.ageHours<24?`${s.ageHours}h`:`${Math.round(s.ageHours/24)}d`;
-      return `<b>${esc(s.source)}</b>: ${s.found} <span class="${stale?"down":""}">(index ${age} old${stale?" — STALE":""})</span>`;
+      return `<b>${esc(s.source)}</b> ${s.found} <span${stale?' class="down"':""}>(data ${age} old${stale?", stale":""})</span>`;
     }
-    return `<b>${esc(s.source)}</b>: ${s.found}`;
+    return `<b>${esc(s.source)}</b> ${s.found} (live)`;
   });
-  el.innerHTML="searched — "+parts.join(" · ");
+  el.innerHTML="Searched: "+parts.join(" · ");
 }
 
 async function run(){
   const text=$("what").value.trim();
   if(!text){$("what").focus();return;}
-  const btn=$("go");btn.disabled=true;
-  $("status").textContent="Searching public tender portals…";
-  $("coverage").textContent="";
-  $("results").innerHTML="";
-  clearResultPaint();
+  const btn=$("go");btn.disabled=true;btn.textContent="Searching";
+  FILTER.country=FILTER.source=FILTER.within="";
   try{
     const map=await loadMap();
     const hits=matchCodes(text,map);
@@ -537,9 +566,8 @@ async function run(){
     await loadFull();
     renderOfficial(searchFull(text,curated));
 
-    const codes=[...new Set([...curated,...EXTRA])];
     const payload={
-      cpvCodes:codes,
+      cpvCodes:[...new Set([...curated,...EXTRA])],
       keywords:text.split(/\s+/).slice(0,6),   // national portals search words, not codes
       curatedLabels:hits.map(h=>h.label),
       matchedTerms:hits.map(h=>h.matched),   // cached sources match these as whole phrases
@@ -558,29 +586,27 @@ async function run(){
       err.diagnostics=data.diagnostics||[];
       throw err;
     }
-    renderResults(data,text);
-    $("status").textContent=`${data.results.length} open ${data.results.length===1?"tender":"tenders"} · deadlines in the future only`;
-    renderCoverage(data.sources||[]);
-    paintResults(data.results);
+    LAST={results:data.results||[],sources:data.sources||[],term:text};
+    $("resultsArea").classList.remove("empty-state");
+    renderFacets();renderList();renderCoverage(LAST.sources);
   }catch(err){
-    $("status").textContent="";
+    LAST={results:[],sources:[],term:text};
+    $("resultsArea").classList.remove("empty-state");
+    $("facets").innerHTML="";$("coverage").textContent="";
+    $("status").textContent="Search failed";$("substatus").textContent="";
     const diag=(err.diagnostics&&err.diagnostics.length)
       ? `<details class="diag"><summary>Show what the tenders service returned</summary><pre>${esc(err.diagnostics.join("\n"))}</pre></details>`
       : "";
-    $("results").innerHTML=`<div class="empty"><b>${esc(err.message)}</b><br>${esc(err.detail||"Try again in a moment.")}${diag}</div>`;
-  }finally{btn.disabled=false;}
+    $("results").innerHTML=`<li class="empty"><b>${esc(err.message)}</b>${esc(err.detail||"Try again in a moment.")}${diag}</li>`;
+  }finally{btn.disabled=false;btn.textContent="Search";}
 }
 
 let lastText="";
-$("what").addEventListener("input",()=>{
-  if($("what").value.trim()!==lastText){EXTRA.clear();}
-});
-$("country").addEventListener("change",markSelected);
-buildTileMap();
-$("go").addEventListener("click",()=>{lastText=$("what").value.trim();run();});
-$("what").addEventListener("keydown",e=>{if(e.key==="Enter"){lastText=$("what").value.trim();run();}});
+$("what").addEventListener("input",()=>{ if($("what").value.trim()!==lastText) EXTRA.clear(); });
+$("searchform").addEventListener("submit",e=>{e.preventDefault();lastText=$("what").value.trim();run();});
+$("country").addEventListener("change",()=>{ if($("what").value.trim()) run(); });
 document.querySelectorAll(".examples button").forEach(b=>{
-  b.addEventListener("click",()=>{$("what").value=b.dataset.ex;run();});
+  b.addEventListener("click",()=>{$("what").value=b.dataset.ex;lastText=b.dataset.ex;run();});
 });
 </script>
 </body>
