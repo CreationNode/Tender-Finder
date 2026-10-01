@@ -26,11 +26,12 @@ import * as placsp from "./sources/placsp.mjs";
 import * as tenderned from "./sources/tenderned.mjs";
 import * as bzp from "./sources/bzp.mjs";
 import * as oev from "./sources/oev.mjs";
+import * as doffin from "./sources/doffin.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(HERE, "..", "data", "index");
 
-const INGESTERS = { sam: samBulk, canadabuys, prozorro, ukfts: ukFts, ukcf: ukCf, austender, tenderned, bzp, oev, pncp, placsp };
+const INGESTERS = { sam: samBulk, canadabuys, prozorro, ukfts: ukFts, ukcf: ukCf, austender, tenderned, bzp, oev, doffin, pncp, placsp };
 
 function readJson(file, fallback = null) {
   try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return fallback; }
