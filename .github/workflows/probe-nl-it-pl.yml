@@ -1,4 +1,4 @@
-name: Probe UK notice ids (temporary)
+name: Probe UK links and CF volume (temporary)
 on:
   push:
     branches: [probe-nl-it-pl]
