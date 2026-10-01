@@ -15,6 +15,17 @@ export const source = "UK-CF";
 export const label = "Contracts Finder (UK, below threshold)";
 
 const API = process.env.CF_API || "https://www.contractsfinder.service.gov.uk/Published/Notices/OCDS/Search";
+const SITE = "https://www.contractsfinder.service.gov.uk";
+
+// A notice page lives at /Notice/<notice GUID>. The release carries it as a tender document URL, and
+// the release id is that GUID plus a "-<number>" suffix; /notice/<ocid> is "Page not found" (checked
+// from a GitHub runner, 2026-10-01).
+export function noticeLink(rel) {
+  const doc = (rel?.tender?.documents || []).map((d) => String(d?.url || "")).find((u) => /^https:\/\/www\.contractsfinder\.service\.gov\.uk\/Notice\/[0-9a-f-]{36}$/i.test(u));
+  if (doc) return doc;
+  const guid = (/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(-\d+)?$/i.exec(String(rel?.id || "")) || [])[1];
+  return guid ? `${SITE}/Notice/${guid}` : `${SITE}/Search`;
+}
 
 export async function ingest({ fetchImpl = politeFetch, log = console.log, previousRows = [], previousState = {} } = {}) {
   const maxPages = Number(process.env.CF_MAX_PAGES || 25);
@@ -29,7 +40,12 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
   const runAt = new Date().toISOString().slice(0, 19);
 
   const byId = new Map();
-  for (const row of previousRows) byId.set(row[0], row);
+  for (const row of previousRows) {
+    // Rows saved before the link fix point at /notice/<ocid>, which does not exist. The OCID does not
+    // contain the notice GUID, so those go to the search page until they are re-read or close.
+    if (/\/notice\/ocds-/i.test(row[7] || "")) row[7] = `${SITE}/Search`;
+    byId.set(row[0], row);
+  }
 
   let seen = 0, kept = 0, history = 0;
   // stages=planning,tender asks the server for opportunities only — cheaper than filtering locally.
@@ -44,7 +60,7 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
         const row = releaseToRow(r, {
           country: "GBR",
           idPrefix: "UKCF",
-          linkFor: (rel) => (rel.ocid ? `https://www.contractsfinder.service.gov.uk/notice/${encodeURIComponent(rel.ocid)}` : "https://www.contractsfinder.service.gov.uk/Search"),
+          linkFor: noticeLink,
         });
         if (!row[0] || !row[1]) continue;
         if (!isOpportunity(r)) { byId.delete(row[0]); history++; continue; }
