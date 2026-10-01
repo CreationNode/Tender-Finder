@@ -155,7 +155,8 @@ data/cpv-full.json             Generated full vocabulary (absent from zip).
 data/index/                    Local index output (README only in repo; real data lives on `indexes` branch).
 netlify.toml
 netlify/functions/search.js    Orchestrator.
-netlify/functions/stats.js     GET ?days=N → totals, matchRate, emptyRate, topMisses.
+netlify/functions/stats.js     GET ?days=N&key=… → totals, matchRate, emptyRate, topMisses. 404 unless STATS_KEY matches.
+netlify/functions/coverage.js  GET → per-source open-notice counts and freshness from the manifest, for the page's "Where we look" table.
 netlify/functions/probe.js     TEMPORARY CanadaBuys/AusTender reachability probe, gated by PROBE_KEY.
                                DELETE after the CanadaBuys question is settled.
 netlify/lib/telemetry.js       safeTerm, logMetric ("SEARCH_METRIC"), recordAggregate (Blobs store
