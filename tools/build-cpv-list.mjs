@@ -53,7 +53,7 @@ let sourceName = input;
 
 if (/^https?:\/\//i.test(input)) {
   console.log(`Downloading ${input} …`);
-  const res = await fetch(input, { headers: { "user-agent": "OpenTenderFinder/1.0 (CPV import)" } });
+  const res = await fetch(input, { headers: { "user-agent": "WhatTheyBuy/1.0 (CPV import; +https://whattheybuy.org)" } });
   if (!res.ok) { console.error(`Download failed: HTTP ${res.status}`); process.exit(1); }
   const buf = Buffer.from(await res.arrayBuffer());
   raw = looksLikeZip(buf) ? pickFromZip(buf) : buf.toString("utf8");
