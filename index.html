@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>What do you make? — Find EU public tenders for it</title>
+<title>What They Buy: find open public tenders for what you make</title>
 <meta name="description" content="Free search for open government contracts. Describe what you make in plain words and see live public tenders buying it — EU, UK, US, Canada, Ukraine and Australia. No account, no tracking.">
 <link rel="canonical" href="https://whattheybuy.org/">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
@@ -14,7 +14,7 @@
 <meta property="og:title" content="What do you make? Find public tenders buying it">
 <meta property="og:description" content="Governments buy almost everything, but file it under numeric codes. Type what you supply and search EU, UK, US, Canadian, Ukrainian and Australian public contracts at once. Free, no account.">
 <meta property="og:url" content="https://whattheybuy.org/">
-<meta property="og:site_name" content="Open Tender Finder">
+<meta property="og:site_name" content="What They Buy">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="What do you make? Find public tenders buying it">
 <meta name="twitter:description" content="Search open government contracts across six countries by describing your product in plain language. Free and open source.">
@@ -24,7 +24,8 @@
 {
   "@context": "https://schema.org",
   "@type": "WebApplication",
-  "name": "Open Tender Finder",
+  "name": "What They Buy",
+  "alternateName": "Open Tender Finder",
   "url": "https://whattheybuy.org/",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Any",
@@ -86,6 +87,8 @@
   header.top{border-bottom:var(--hair);position:relative;z-index:1;background:var(--paper)}
   .masthead{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.7rem 0;flex-wrap:wrap}
   .brand{font-family:var(--cond);font-weight:700;font-size:1.05rem;letter-spacing:.14em;text-transform:uppercase}
+  .brand .tag{font-weight:500;color:var(--ink-2);margin-left:.6rem;letter-spacing:.12em}
+  @media (max-width:420px){.brand .tag{display:none}}
   .masthead nav{display:flex;gap:1.2rem}
   .masthead nav a{font-family:var(--cond);font-weight:600;font-size:.82rem;letter-spacing:.12em;text-transform:uppercase;text-decoration:none}
   .masthead nav a:hover{text-decoration:underline;text-underline-offset:4px}
@@ -225,7 +228,7 @@
 <div class="strip b" id="stripB" aria-hidden="true"></div>
 <header class="top">
   <div class="wrap masthead">
-    <div class="brand">Open Tender Finder</div>
+    <div class="brand">What They Buy <span class="tag">open tender finder</span></div>
     <nav aria-label="Page"><a href="#sources">Sources</a><a href="#about">About</a></nav>
   </div>
 </header>
@@ -301,7 +304,7 @@
 </main>
 
 <footer class="wrap">
-  <span class="label">Open Tender Finder</span>
+  <span class="label">What They Buy · open tender finder</span>
   <span class="label">Open data from official public procurement portals</span>
 </footer>
 
