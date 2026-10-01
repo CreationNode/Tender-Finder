@@ -1,0 +1,20 @@
+name: Probe PLACSP speed (temporary)
+on:
+  push:
+    branches: [probe-placsp-speed]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - run: |
+          UA="Mozilla/5.0 (compatible; OpenTenderFinder/1.0; public-interest tender search; +https://github.com/tender-finder)"
+          for u in \
+            https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom \
+            https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3_20260930_201747_2.atom \
+            https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3_20260930_201747_2.atom \
+            https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3_20260930_201747_3.atom ; do
+            curl -sS -o /tmp/p.atom --max-time 150 -A "$UA" -H "Accept-Encoding: gzip" --compressed -w "%{http_code} ttfb=%{time_starttransfer}s total=%{time_total}s size=%{size_download} speed=%{speed_download}B/s ip=%{remote_ip}\n" "$u" || echo "FAIL $u"
+            echo "  $u"; sleep 3
+          done
+          curl -sSI --max-time 30 -A "$UA" https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3_202609.zip | head -8 || true
