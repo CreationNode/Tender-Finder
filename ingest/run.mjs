@@ -42,8 +42,16 @@ async function main() {
   const manifest = readJson(manifestPath, { sources: {} });
   const failures = [];
 
+  // Saved after EVERY source, not just at the end: when a slow source runs the job out of time, the
+  // sources that already finished must still be recorded (the first Brazil/Spain run lost them all).
+  const saveManifest = () => {
+    manifest.generatedAt = new Date().toISOString();
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  };
+
   for (const [key, mod] of Object.entries(INGESTERS)) {
     if (only && only !== key) continue;
+    saveManifest();   // records the previous source before this one starts
     const outPath = path.join(OUT_DIR, `${key}.json`);
     const statePath = path.join(OUT_DIR, `${key}.state.json`);
     const previous = readJson(outPath);
@@ -107,8 +115,7 @@ async function main() {
     }
   }
 
-  manifest.generatedAt = new Date().toISOString();
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  saveManifest();
 
   if (failures.length) {
     console.error(`\n${failures.length} source(s) failed. The previous index files were left intact.`);

@@ -50,6 +50,9 @@ jobs:
       # as CanadaBuys does not make every daily run look broken.
       - name: Run ingestion
         continue-on-error: true
+        # Leaves time inside the 45-minute job for the publish step, which runs even after a timeout,
+        # so a slow source costs only its own update, never everyone's.
+        timeout-minutes: 38
         env:
           SAM_API_KEY: ${{ secrets.SAM_API_KEY }}
           SAM_BULK_CSV_URL: ${{ secrets.SAM_BULK_CSV_URL }}

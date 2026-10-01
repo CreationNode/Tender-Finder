@@ -18,7 +18,7 @@
 // is kept; any later status (EV, ADJ, RES, ANUL) removes the row. Deleted entries are honoured.
 
 import { toRow } from "../lib/index-format.mjs";
-import { politeFetch } from "../lib/http.mjs";
+import { fetchText } from "../lib/http.mjs";
 
 export const source = "PLACSP";
 export const label = "PLACSP (Spain)";
@@ -62,8 +62,12 @@ export function parseEntry(xml) {
   };
 }
 
-export async function ingest({ fetchImpl = politeFetch, log = console.log, previousRows = [], previousState = {} } = {}) {
+export async function ingest({ fetchImpl = fetchText, log = console.log, previousRows = [], previousState = {} } = {}) {
   const maxPages = Number(process.env.PLACSP_MAX_PAGES || 40);
+  // Wall-clock cap so one slow portal can never eat the whole job (the first live run hung for 30
+  // minutes). Pages already read are kept; the backfill cursor resumes next run.
+  const budgetMs = Number(process.env.PLACSP_BUDGET_MS || 10 * 60 * 1000);
+  const startedAt = Date.now();
   const backfillDays = Number(process.env.PLACSP_BACKFILL_DAYS || 45);
   const today = new Date().toISOString().slice(0, 10);
   const backfillUntil = previousState.backfillUntil ||
@@ -81,14 +85,23 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
   // Walks rel="next" links from `url`, stopping at `stopAt` (an ISO timestamp) or the page budget.
   async function walk(url, stopAt) {
     while (url && pages < maxPages) {
-      const res = await fetchImpl(url, { headers: { accept: "application/atom+xml" } });
+      if (Date.now() - startedAt > budgetMs) { notes.push(`time budget reached after ${pages} page(s)`); return url; }
+      let res;
+      try {
+        res = await fetchImpl(url, { headers: { accept: "application/atom+xml" } });
+      } catch (err) {
+        if (pages === 0) throw err;
+        notes.push(`${err.message.split(" reading ")[0]} after ${pages} page(s)`);
+        return url;
+      }
       if (!res.ok) {
         if (pages === 0) throw new Error(`PLACSP returned HTTP ${res.status} on the first page`);
         notes.push(`HTTP ${res.status} after ${pages} page(s)`);
         return url;
       }
-      const xml = await res.text();
+      const xml = res.text;
       pages++;
+      if (pages % 5 === 0) log(`PLACSP: ${pages} page(s), ${entries} entries, ${Math.round((Date.now() - startedAt) / 1000)} s`);
       for (const m of xml.matchAll(/<at:deleted-entry[^>]*ref="([^"]+)"/g)) {
         const key = `ES-${entryId(m[1])}`;
         if (!decided.has(key)) { decided.add(key); if (byId.delete(key)) removed++; }
