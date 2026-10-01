@@ -1,0 +1,29 @@
+name: Probe NL/IT/PL sources (temporary)
+on:
+  push:
+    branches: [probe-nl-it-pl]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: |
+          UA="Mozilla/5.0 (compatible; OpenTenderFinder/1.0; public-interest tender search; +https://github.com/tender-finder)"
+          get() { echo; echo "=== $1"; curl -sS -L --max-time 40 -A "$UA" -H "Accept: application/json, application/xml;q=0.9, */*;q=0.5" --compressed -D /tmp/h -o /tmp/b -w "HTTP %{http_code} size=%{size_download} type=%{content_type} t=%{time_total}s\n" "$1" || echo FAIL; grep -iE '^(x-ratelimit|retry-after|server|link):' /tmp/h || true; head -c ${2:-1500} /tmp/b; echo; sleep 2; }
+          for h in www.tenderned.nl ezamowienia.gov.pl pubblicitalegale.anticorruzione.it dati.anticorruzione.it; do get https://$h/robots.txt 800; done
+          # Netherlands: TenderNed TNS publication webservice (documented as public, CC0)
+          get "https://www.tenderned.nl/papi/tenderned-rs-tns/v2/publicaties?page=0&size=3" 4000
+          get "https://www.tenderned.nl/papi/tenderned-rs-tns/v2/publicaties?page=0&size=100" 300
+          get "https://www.tenderned.nl/papi/tenderned-rs-tns/v2/publicaties?page=0&size=3&publicatieType=AAO" 1500
+          # Poland: BZP notice board API (documented as no auth required)
+          get "https://ezamowienia.gov.pl/mo-board/api/v1/notice?NoticeType=ContractNotice&PublicationDateFrom=2026-09-30T00:00:00&PublicationDateTo=2026-10-01T23:59:59&PageSize=3&PageNumber=1" 4000
+          get "https://ezamowienia.gov.pl/mo-board/api/v1/notice?NoticeType=ContractNotice&PublicationDateFrom=2026-09-30&PublicationDateTo=2026-10-01" 2000
+          get "https://ezamowienia.gov.pl/mo-client-board/api/notices/" 1000
+          get "https://ezamowienia.gov.pl/mo-board/api/v1/Board/Search?noticeType=ContractNotice&publicationDateFrom=2026-09-30&publicationDateTo=2026-10-01&pageNumber=1&pageSize=3" 2000
+          # Italy: ANAC legal-publicity platform and open data catalogue
+          get "https://pubblicitalegale.anticorruzione.it/api/v0/avvisi-full-text-specializzata?page=0&pageSize=3&dataPubblicazioneStart=30/09/2026&dataPubblicazioneEnd=01/10/2026&sortField=dataPubblicazione&sortDirection=desc" 4000
+          get "https://pubblicitalegale.anticorruzione.it/api/v0/avvisi?page=0&pageSize=3" 1500
+          get "https://dati.anticorruzione.it/opendata/api/3/action/package_show?id=cig" 3000
+          get "https://dati.anticorruzione.it/opendata/api/3/action/package_search?q=bandi&rows=5" 3000
+          get "https://dati.anticorruzione.it/opendata/ocds_it" 1500
+          get "https://pubblicitalegale.anticorruzione.it/bdncp" 1500
