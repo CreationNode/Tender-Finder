@@ -9,4 +9,4 @@ Disallow: /.netlify/functions/
 # Index files are large machine-readable data, not pages.
 Disallow: /data/index/
 
-Sitemap: https://ubiquitous-rugelach-ae2729.netlify.app/sitemap.xml
+Sitemap: https://whattheybuy.org/sitemap.xml
