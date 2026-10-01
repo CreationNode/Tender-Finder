@@ -131,7 +131,7 @@ the previous index. Set a calendar reminder anyway.
 | CanadaBuys | 403 from a home connection | bot protection, not a bad URL. Three official locations are tried and each status reported; a datacentre IP (GitHub Actions) is often accepted where a residential one is not — **run the workflow before concluding it is down** |
 | AusTender | working, with a caveat | URL discovered from the data.gov.au CKAN record. **The feed publishes no closing dates and no agency** — only title, link, one-line description and publication date (verified against live output). Notices are therefore retired `AUSTENDER_MAX_AGE_DAYS` (default 90) after publication: an estimate, not data. Australian results show no deadline and no buyer |
 | SAM | needs credentials | `SAM_API_KEY` + `SAM_BULK_CSV_URL` |
-| PNCP | working | ~27,000 open procurements, 50 per page (the API rejects larger pages). Each run reads the newest pages, then continues a ring cursor through the rest within `PNCP_BUDGET_MS` (default 10 min). Titles are Portuguese with no CPV: English searches match through the `pt` terms in `data/cpv-map.json` |
+| PNCP | working | ~27,000 open procurements, 50 per page (the API rejects larger pages). Each run reads the newest pages, then continues a ring cursor through the rest within `PNCP_BUDGET_MS` (default 12 min, about 200 pages; the full ring takes about three days). Expect an index of roughly 10 MB. Titles are Portuguese with no CPV: English searches match through the `pt` terms in `data/cpv-map.json` |
 
 ### Settling the CanadaBuys 403 (temporary probe)
 

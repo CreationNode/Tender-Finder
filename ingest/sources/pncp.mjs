@@ -10,6 +10,8 @@
 // the next 60 days, ordered oldest-published first. Page size is capped at 50 (500 returns HTTP 400),
 // so a full sweep is ~550 requests. PNCP serves no robots.txt (404) and documents the API publicly.
 //
+// VERIFIED (2026-10-01, paced dry run): 69 pages in 4 minutes with one 429, about 17 pages a minute,
+// so a 12-minute budget covers ~200 pages and the ring completes in about three days.
 // PNCP rate-limits: an unpaced crawl got HTTP 429 after 8 requests. So requests are spaced
 // (PNCP_DELAY_MS, default 1.5 s), a 429 waits for Retry-After (or 30 s) and retries up to 3 times.
 //
@@ -56,7 +58,7 @@ function toNoticeRow(c) {
 }
 
 export async function ingest({ fetchImpl = politeFetch, log = console.log, previousRows = [], previousState = {} } = {}) {
-  const budgetMs = Number(process.env.PNCP_BUDGET_MS || 10 * 60 * 1000);
+  const budgetMs = Number(process.env.PNCP_BUDGET_MS || 12 * 60 * 1000);
   const tailPages = Number(process.env.PNCP_TAIL_PAGES || 30);
   const horizonDays = Number(process.env.PNCP_HORIZON_DAYS || 180);
   const startedAt = Date.now();
