@@ -28,7 +28,10 @@ const HEAD = process.env.PLACSP_FEED ||
 
 const decode = (s) => String(s || "")
   .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'")
-  .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n))).replace(/&amp;/g, "&")
+  .replace(/&amp;/g, "&")
+  // After &amp;, because titles arrive double-escaped ("&amp;#xD;" for a carriage return).
+  .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+  .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
   .replace(/\s+/g, " ").trim();
 const first = (xml, re) => { const m = re.exec(xml); return m ? decode(m[1]) : ""; };
 const entryId = (url) => (/(\d+)\s*$/.exec(url) || [])[1] || "";
@@ -113,7 +116,7 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
   // 1. Incremental: head back to where the last run started.
   const incrementalStop = previousState.headUpdated || backfillUntil;
   const leftover = await walk(HEAD, incrementalStop);
-  if (leftover) notes.push("page budget hit before reaching last run's head; the gap fills on later runs");
+  if (leftover && previousState.headUpdated) notes.push("page budget hit before reaching last run's head; older part of the gap is skipped");
 
   // 2. Backfill (cold start only), resuming from a saved page.
   let backfillNext = previousState.backfillNext === undefined ? leftover : previousState.backfillNext;
