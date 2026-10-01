@@ -67,7 +67,7 @@ for (const [p] of multi.slice(0, 3)) console.log("VERSIONS", JSON.stringify(tNot
 // ---- matching with the new dedupe
 const toks = (s) => new Set(String(s || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 3));
 const ov = (a, b) => { if (!a.size || !b.size) return 0; let h = 0; for (const t of a) if (b.has(t)) h++; return h / Math.min(a.size, b.size); };
-const dNotices = doffin.map((h) => ({ id: "NO-" + h.id, title: h.heading, buyer: (h.buyer || []).map((b) => b.name).join(", "), country: "NOR", deadline: d10(h.deadline), source: "DOFFIN" }));
+const dNotices = doffin.map((h) => ({ id: "NO-" + h.id, cpv: (h.cpvCodes || []).join(" "), title: h.heading, buyer: (h.buyer || []).map((b) => b.name).join(", "), country: "NOR", deadline: d10(h.deadline), source: "DOFFIN" }));
 // How often does one buyer close two different Doffin tenders on the same day? (the ambiguous case)
 const slot = {}; for (const d of dNotices) { const k = d.deadline + "|" + d.buyer.toLowerCase(); slot[k] = (slot[k] || 0) + 1; }
 const shared = Object.values(slot).filter((c) => c > 1).reduce((a, c) => a + c, 0);
@@ -75,7 +75,18 @@ console.log(`DOFFIN notices sharing buyer+deadline with another Doffin notice: $
 const merged = dedupe([...tNotices.map((t) => ({ ...t })), ...dNotices.map((d) => ({ ...d }))]);
 const cross = merged.filter((m) => m.source === "TED" && (m.alsoOn || []).includes("DOFFIN"));
 console.log(`NEW DEDUPE: in TED ${tNotices.length} + Doffin ${dNotices.length} = ${tNotices.length + dNotices.length}; out ${merged.length}; TED records also on Doffin ${cross.length}`);
-// Spot-check merged pairs for wrong merges: show 8 at random with the Doffin title they absorbed.
+const strip = (x) => ({ ...x, alsoOn: undefined });
+console.log(`BREAKDOWN: TED+Doffin ${cross.length}; Doffin records absorbing Doffin ${merged.filter((m) => m.source === "DOFFIN" && (m.alsoOn || []).includes("DOFFIN")).length}; TED absorbing TED ${merged.filter((m) => m.source === "TED" && (m.alsoOn || []).includes("TED")).length}; TED versions dropped ${tNotices.length - new Set(tNotices.map((n) => n.procedure || n.id)).size}`);
 const absorbed = dNotices.filter((d) => !merged.some((m) => m.id === d.id));
-const pick = absorbed.sort(() => Math.random() - 0.5).slice(0, 8);
-for (const d of pick) { const t = cross.find((c) => c.deadline === d.deadline && ov(toks(c.buyer), toks(d.buyer)) > 0); console.log("MERGED", JSON.stringify({ doffin: d.title, ted: t?.title, buyer: d.buyer })); }
+const pairs = absorbed.map((d) => ({ d, t: tNotices.find((t) => t.deadline === d.deadline && dedupe([strip(t), { ...d }]).length === 1) }));
+console.log(`absorbed Doffin ${absorbed.length}, of which paired with a TED notice ${pairs.filter((p) => p.t).length}`);
+for (const p of pairs.sort(() => Math.random() - 0.5).slice(0, 15)) console.log("PAIR", JSON.stringify({ doffin: p.d.title.slice(0, 80), ted: (p.t?.title || "(none: " + p.d.buyer + ")").slice(0, 110) }));
+// Per-query view: filter both sides to one CPV division at a time, as a search would, and count merges.
+const divs = {}; for (const t of tNotices) { const g = (String(t.cpv).match(/\d{2}/) || [])[0]; if (g) divs[g] = 1; }
+let qIn = 0, qOut = 0;
+for (const g of Object.keys(divs)) {
+  const inG = (x) => (String(x.cpv || "").match(/\b\d{8}\b/g) || []).some((c) => c.startsWith(g));
+  const T = tNotices.filter(inG), D = dNotices.filter((d) => inG({ cpv: doffin.find((h) => "NO-" + h.id === d.id).cpvCodes.join(" ") }));
+  qIn += T.length + D.length; qOut += dedupe([...T.map(strip), ...D.map((d) => ({ ...d, cpv: doffin.find((h) => "NO-" + h.id === d.id).cpvCodes.join(" ") }))]).length;
+}
+console.log(`PER-DIVISION searches: ${Object.keys(divs).length} divisions, ${qIn} records in, ${qOut} out`);
