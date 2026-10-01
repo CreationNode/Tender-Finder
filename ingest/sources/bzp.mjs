@@ -57,17 +57,30 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
   const now = startedAt;
   const today = new Date().toISOString().slice(0, 10);
   const byId = new Map(previousRows.map((r) => [r[0], r]));
-  let requests = 0, read = 0, failed = 0, outOfTime = false;
+  let requests = 0, read = 0, failed = 0, retried = 0, outOfTime = false;
   const notes = [];
 
+  // MEASURED (2026-10-01): the API answers some requests with an error even at one request a
+  // second (2 of 3 failed when a second run started straight after a first). So a failure waits
+  // (Retry-After, else 15 s, then 45 s) and retries before the window is given up for this run.
   async function fetchWindow(from, to) {
     const url = `${API}?NoticeType=ContractNotice&PublicationDateFrom=${stamp(from)}&PublicationDateTo=${stamp(to)}&PageSize=${PAGE}&PageNumber=1`;
-    if (requests > 0) await sleep(delayMs);
-    requests++;
-    const res = await fetchImpl(url, { headers: { accept: "application/json" }, retries: 1, timeoutMs: 90000 });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const list = JSON.parse(res.text || "[]");
-    return Array.isArray(list) ? list : [];
+    let lastError;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (requests > 0) await sleep(attempt ? Math.min(120, lastError.retryAfter || 15 * 3 ** (attempt - 1)) * 1000 : delayMs);
+      requests++;
+      try {
+        const res = await fetchImpl(url, { headers: { accept: "application/json" }, retries: 0, timeoutMs: 90000 });
+        if (res.ok) {
+          const list = JSON.parse(res.text || "[]");
+          return Array.isArray(list) ? list : [];
+        }
+        lastError = Object.assign(new Error(`HTTP ${res.status}`), { retryAfter: res.retryAfter });
+      } catch (err) { lastError = err; }
+      retried++;
+      log(`BZP: ${lastError.message.split(" reading ")[0]} for ${stamp(from)}..${stamp(to)} (attempt ${attempt + 1})`);
+    }
+    throw lastError;
   }
 
   // Reads [from, to), splitting it in half while a window fills a page, so no row depends on
@@ -79,7 +92,7 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
     try { list = await fetchWindow(from, to - 1000); }
     catch (err) {
       failed++;
-      if (requests === 1) throw new Error(`BZP failed on the first request: ${err.message}`);
+      if (read === 0 && failed >= 2) throw new Error(`BZP: no window could be read (${err.message})`);
       return false;
     }
     if (list.length >= PAGE && to - from > 10 * 60 * 1000) {
@@ -118,7 +131,6 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
   // 2. Backfill towards the lookback limit, within what is left of the budget.
   if (oldest > limit && !outOfTime) oldest = await walkBack(oldest, limit);
   if (outOfTime) notes.push("time budget reached; continues next run");
-  if (failed && failed >= requests / 2) throw new Error(`BZP: ${failed} of ${requests} requests failed. Check BZP_API.`);
 
   let expired = 0;
   for (const [id, row] of byId) if (row[4] < today) { byId.delete(id); expired++; }
@@ -126,7 +138,7 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
   const rows = [...byId.values()];
   const backfillDone = oldest <= limit;
   log(`BZP: ${requests} request(s), ${failed} failed, ${read} contract notices read, ${expired} expired; index now ${rows.length}; backfill ${backfillDone ? "complete" : `back to ${new Date(oldest).toISOString().slice(0, 10)}`}`);
-  notes.push(`requests ${requests}`, `failed ${failed}`, `read ${read}`, backfillDone ? "backfill complete" : "backfill continuing");
+  notes.push(`requests ${requests}`, `retried ${retried}`, `windows failed ${failed}`, `read ${read}`, backfillDone ? "backfill complete" : "backfill continuing");
   return {
     rows,
     notes,
