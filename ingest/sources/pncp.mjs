@@ -25,7 +25,7 @@
 // Portuguese terms in data/cpv-map.json (`pt`), which the search page sends alongside the query.
 
 import { toRow } from "../lib/index-format.mjs";
-import { politeFetch } from "../lib/http.mjs";
+import { fetchText } from "../lib/http.mjs";
 
 export const source = "PNCP";
 export const label = "PNCP (Brazil)";
@@ -57,7 +57,7 @@ function toNoticeRow(c) {
   });
 }
 
-export async function ingest({ fetchImpl = politeFetch, log = console.log, previousRows = [], previousState = {} } = {}) {
+export async function ingest({ fetchImpl = fetchText, log = console.log, previousRows = [], previousState = {} } = {}) {
   const budgetMs = Number(process.env.PNCP_BUDGET_MS || 12 * 60 * 1000);
   const tailPages = Number(process.env.PNCP_TAIL_PAGES || 30);
   const horizonDays = Number(process.env.PNCP_HORIZON_DAYS || 180);
@@ -81,16 +81,16 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
     for (let attempt = 0; ; attempt++) {
       if (requests > 0) await sleep(delayMs);
       requests++;
-      res = await fetchImpl(url, { headers: { accept: "application/json" }, retries: 0 });
+      res = await fetchImpl(url, { headers: { accept: "application/json" }, retries: 0, timeoutMs: 60000 });
       if (res.status !== 429 || attempt >= 3) break;
       throttled++;
-      const wait = Math.min(Number(res.headers?.get?.("retry-after")) || 30, 120);
+      const wait = Math.min(res.retryAfter || 30, 120);
       log(`PNCP: rate limited on page ${n}; waiting ${wait} s`);
       await sleep(wait * 1000);
     }
     if (res.status === 204) return { data: [], totalPaginas: 0 };
     if (!res.ok) throw new Error(`HTTP ${res.status} on page ${n}`);
-    const body = await res.json();
+    const body = JSON.parse(res.text || "{}");
     for (const c of body.data || []) {
       const row = toNoticeRow(c);
       if (!row[0] || !row[1]) continue;
