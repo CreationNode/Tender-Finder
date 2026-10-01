@@ -51,7 +51,15 @@ export function normaliseText(value) {
  * BOAMP, so without this the same tender appears twice with different wording.
  *
  * Deliberately conservative — a false merge HIDES a real tender, which is worse than showing one
- * twice. Requires the same country, the same deadline date, and a strong title-token overlap.
+ * twice. Two notices are one tender when they share the country and the deadline date and either
+ *   * their titles share most of their words, or
+ *   * they come from DIFFERENT sources and name the same buyer. TED shows an English translation
+ *     while national portals show the original (Doffin: "Vintervedlikehold Region Vest" vs TED:
+ *     "Winter maintenance Region West"), so titles alone missed 346 of 369 Norwegian pairs
+ *     (measured 2026-10-01). The buyer match only counts when that buyer has exactly one notice
+ *     with that deadline on each side, so a buyer closing two tenders on one day is never merged,
+ *     and, when both carry CPV codes, they must share a CPV group.
+ * Repeated versions of one TED procedure (a notice and its corrections) collapse to the latest.
  */
 export function dedupe(notices) {
   const tokens = (s) =>
@@ -67,16 +75,59 @@ export function dedupe(notices) {
     for (const t of a) if (b.has(t)) hits++;
     return hits / Math.min(a.size, b.size);
   };
+  // Words that say what kind of body a buyer is, not which one: "Asker kommune" and "Narvik kommune"
+  // share only "kommune", which must not count as the same buyer.
+  const GENERIC = new Set(("kommune kommunes fylkeskommune municipality county council city ville commune " +
+    "département region regione gemeente gmina powiat miasto ayuntamiento stadt landkreis gemeinde").split(" "));
+  const sameBuyer = (a, b) => {
+    const ta = tokens(a), tb = tokens(b);
+    if (overlap(ta, tb) < 0.6) return false;
+    for (const t of ta) if (tb.has(t) && !GENERIC.has(t)) return true;
+    return false;
+  };
+
+  // CPV groups (first three digits). When both notices carry codes they must share one, so a buyer's
+  // furniture tender is never taken for its cleaning tender.
+  const groups = (cpv) => new Set((String(cpv || "").match(/\b\d{8}\b/g) || []).map((c) => c.slice(0, 3)));
+  const sameGroup = (a, b) => {
+    const ga = groups(a.cpv), gb = groups(b.cpv);
+    if (!ga.size || !gb.size) return true;
+    for (const g of ga) if (gb.has(g)) return true;
+    return false;
+  };
+
+  // Repeated versions of one procedure from the same source (a notice and its corrections, which
+  // can move the deadline): keep only the most recently published.
+  const latest = new Map();
+  for (const n of notices) {
+    if (!n.procedure) continue;
+    const key = `${n.source}|${n.procedure}`;
+    const cur = latest.get(key);
+    if (!cur || String(n.published || "") > String(cur.published || "")) latest.set(key, n);
+  }
+  const list = notices.filter((n) => !n.procedure || latest.get(`${n.source}|${n.procedure}`) === n);
+  const sameSlot = (a, b) =>
+    a.country === b.country && a.deadline && a.deadline === b.deadline &&
+    a.buyer && b.buyer && sameBuyer(a.buyer, b.buyer) && sameGroup(a, b);
+  // A buyer match only counts when it is unambiguous: exactly one notice on each side.
+  const unique = (a, b) =>
+    list.filter((m) => m.source === b.source && sameSlot(a, m)).length === 1 &&
+    list.filter((m) => m.source === a.source && sameSlot(b, m)).length === 1;
 
   const kept = [];
-  for (const n of notices) {
+  for (const n of list) {
     const nTok = tokens(n.title);
-    const dup = kept.find(
+    let dup = kept.find(
       (k) =>
         k.country === n.country &&
         k.deadline && n.deadline && k.deadline === n.deadline &&
         overlap(tokens(k.title), nTok) >= 0.7
     );
+    if (!dup) {
+      dup = kept.find(
+        (k) => k.source !== n.source && !(k.alsoOn || []).includes(n.source) && sameSlot(k, n) && unique(k, n)
+      );
+    }
     if (dup) {
       // Keep the richer record, but remember that both portals carried it.
       dup.alsoOn = [...new Set([...(dup.alsoOn || []), n.source])];
