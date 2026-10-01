@@ -6,15 +6,16 @@
 // lists it as open:
 //
 //   GET https://ezamowienia.gov.pl/mo-board/api/v1/notice?NoticeType=ContractNotice
-//       &PublicationDateFrom=...&PublicationDateTo=...&PageSize=500&PageNumber=N
+//       &PublicationDateFrom=...&PublicationDateTo=...&PageSize=250
 //
 // VERIFIED from a GitHub runner (2026-10-01): keyless JSON; PageSize 500 works, 2000 is rejected;
 // rows carry CPV codes, the offer deadline (submittingOffersDate) and the buyer. robots.txt has no
 // rules.
 //
 // MEASURED (2026-10-01):
-// - The date filter works on whole days: the time of day is ignored, so a day cannot be split into
-//   smaller windows. Each day is read page by page instead (a few hundred notices a day).
+// - PageNumber is ignored (every page returns the same first rows), but rows come oldest first and
+//   PublicationDateFrom honours the time of day. So a day is read like a cursor: ask again from the
+//   last row's publication time until a page comes back short. A day has a few hundred notices.
 // - Every row includes the full notice as HTML (~28 KB), so a day is ~10 MB. To stay light, runs are
 //   incremental: each run re-reads today and yesterday, plus any day in the last BZP_LOOKBACK_DAYS
 //   (default 35) not yet read, newest first, within BZP_BUDGET_MS. The first runs backfill.
@@ -63,8 +64,8 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
   let requests = 0, read = 0, retried = 0, daysRead = 0;
   const notes = [];
 
-  async function fetchPage(day, page) {
-    const url = `${API}?NoticeType=ContractNotice&PublicationDateFrom=${day}T00:00:00&PublicationDateTo=${day}T23:59:59&PageSize=${PAGE}&PageNumber=${page}`;
+  async function fetchPage(from, to) {
+    const url = `${API}?NoticeType=ContractNotice&PublicationDateFrom=${from}&PublicationDateTo=${to}&PageSize=${PAGE}`;
     let lastError;
     for (let attempt = 0; attempt < 3; attempt++) {
       if (requests > 0) await sleep(attempt ? Math.min(120, lastError.retryAfter || 15 * 3 ** (attempt - 1)) * 1000 : delayMs);
@@ -78,16 +79,18 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
         lastError = Object.assign(new Error(`HTTP ${res.status}`), { retryAfter: res.retryAfter });
       } catch (err) { lastError = err; }
       retried++;
-      log(`BZP: ${lastError.message.split(" reading ")[0]} for ${day} page ${page} (attempt ${attempt + 1})`);
+      log(`BZP: ${lastError.message.split(" reading ")[0]} from ${from} (attempt ${attempt + 1})`);
     }
     throw lastError;
   }
 
-  // Reads one whole day; true only if every page was read.
+  // Reads one whole day with a time cursor; true only if the day was read to its end.
   async function readDay(day) {
+    const to = `${day}T23:59:59`;
+    let cursor = `${day}T00:00:00`;
     for (let page = 1; page <= maxPagesPerDay; page++) {
       if (Date.now() - startedAt > budgetMs) return false;
-      const list = await fetchPage(day, page);
+      const list = await fetchPage(cursor, to);
       for (const n of list) {
         read++;
         const row = toNoticeRow(n);
@@ -95,6 +98,10 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
         byId.set(row[0], row);
       }
       if (list.length < PAGE) return true;
+      // Next page starts at the last row's second (inclusive, so a few rows repeat and are deduped).
+      let next = String(list[list.length - 1].publicationDate || "").slice(0, 19);
+      if (!next || next <= cursor) next = new Date(Date.parse(cursor + "Z") + 1000).toISOString().slice(0, 19);
+      cursor = next;
     }
     notes.push(`${day} has more than ${maxPagesPerDay} pages`);
     return true;
