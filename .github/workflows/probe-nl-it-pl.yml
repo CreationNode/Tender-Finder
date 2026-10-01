@@ -1,13 +1,20 @@
-name: Probe UK links and CF volume (temporary)
+name: Probe data-quality branch (temporary)
 on:
   push:
     branches: [probe-nl-it-pl]
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
+        with: { ref: fix-data-quality, persist-credentials: false }
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
-      - run: node probe/uk.mjs
+      - name: Contracts Finder snapshot
+        run: |
+          node -e 'import("./ingest/sources/uk-cf.mjs").then(async (m) => { const o = await m.ingest(); console.log(o.notes); const s = o.rows.slice(0, 3); console.log(JSON.stringify(s, null, 1)); })'
+      - name: Prozorro sample (small caps)
+        env: { PROZORRO_MAX_PAGES: "3", PROZORRO_MAX_DETAILS: "30" }
+        run: |
+          node -e 'import("./ingest/sources/prozorro.mjs").then(async (m) => { const o = await m.ingest({ previousState: { ascOffset: String((Date.now() - 3600e3) / 1000) } }); console.log(o.notes); console.log("rows", o.rows.length, "untitled", o.rows.filter(r => !r[1]).length, "pending", o.state.pendingIds.length); console.log(JSON.stringify(o.rows.slice(0, 2))); })'
