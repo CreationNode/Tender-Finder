@@ -31,7 +31,9 @@ import * as doffin from "./sources/doffin.mjs";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(HERE, "..", "data", "index");
 
-const INGESTERS = { sam: samBulk, canadabuys, prozorro, ukfts: ukFts, ukcf: ukCf, austender, tenderned, bzp, oev, doffin, pncp, placsp };
+// CanadaBuys refuses our requests (HTTP 403, from GitHub runners too), so it is only run when
+// CANADABUYS_ENABLED=1, e.g. once the operator grants access. Asking daily for a refusal helps no one.
+const INGESTERS = { sam: samBulk, ...(process.env.CANADABUYS_ENABLED === "1" ? { canadabuys } : {}), prozorro, ukfts: ukFts, ukcf: ukCf, austender, tenderned, bzp, oev, doffin, pncp, placsp };
 
 function readJson(file, fallback = null) {
   try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return fallback; }
@@ -72,6 +74,9 @@ async function main() {
   // "ran and succeeded today" from "yesterday's clean entry, restored but never re-run".
   manifest.runStartedAt = new Date(startedAt).toISOString();
   manifest.runId = process.env.GITHUB_RUN_ID || "local";
+  // A source that is switched off (CanadaBuys) leaves the manifest, so the verdict doesn't report it
+  // as "not attempted" every day and the site doesn't list stale numbers for it.
+  if (!only) for (const key of Object.keys(manifest.sources)) if (!INGESTERS[key]) delete manifest.sources[key];
 
   // Saved after EVERY source, not just at the end: when a slow source runs the job out of time, the
   // sources that already finished must still be recorded (the first Brazil/Spain run lost them all).
