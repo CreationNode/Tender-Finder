@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>What They Buy: find open public tenders for what you make</title>
-<meta name="description" content="Free search for open government contracts. Describe what you make in plain words and see live public tenders buying it — EU, UK, US, Canada, Ukraine and Australia. No account, no tracking.">
+<meta name="description" content="Free search for open government contracts. Describe what you make in plain words and see live public tenders buying it — EU, UK, US, Canada, Brazil, Spain, Ukraine and Australia. No account, no tracking.">
 <link rel="canonical" href="https://whattheybuy.org/">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
 
@@ -17,7 +17,7 @@
 <meta property="og:site_name" content="What They Buy">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="What do you make? Find public tenders buying it">
-<meta name="twitter:description" content="Search open government contracts across six countries by describing your product in plain language. Free and open source.">
+<meta name="twitter:description" content="Search open government contracts across eight countries by describing your product in plain language. Free and open source.">
 
 <!-- Structured data: tells search engines this is a free, no-login tool rather than a company page. -->
 <script type="application/ld+json">
@@ -29,7 +29,7 @@
   "url": "https://whattheybuy.org/",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Any",
-  "description": "Free search for open government contract opportunities. Translates plain-language product descriptions into official procurement codes (CPV, PSC, NAICS, GSIN) and searches public tender sources across the EU, UK, US, Canada, Ukraine and Australia.",
+  "description": "Free search for open government contract opportunities. Translates plain-language product descriptions into official procurement codes (CPV, PSC, NAICS, GSIN) and searches public tender sources across the EU, UK, US, Canada, Brazil, Spain, Ukraine and Australia.",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
   "isAccessibleForFree": true,
   "inLanguage": "en",
@@ -290,6 +290,8 @@
           <tr><td class="k">Find a Tender</td><td>United Kingdom</td><td>Above threshold</td><td><span class="state">Daily</span></td></tr>
           <tr><td class="k">Contracts Finder</td><td>United Kingdom</td><td>Below threshold</td><td><span class="state">Daily</span></td></tr>
           <tr><td class="k">SAM.gov</td><td>United States</td><td>Federal</td><td><span class="state">Daily</span></td></tr>
+          <tr><td class="k">PLACSP</td><td>Spain</td><td>Including below threshold</td><td><span class="state">Daily</span></td></tr>
+          <tr><td class="k">PNCP</td><td>Brazil</td><td>Federal, state and municipal; titles in Portuguese</td><td><span class="state">Daily</span></td></tr>
           <tr><td class="k">Prozorro</td><td>Ukraine</td><td>All public buyers; titles in Ukrainian, matched by code</td><td><span class="state">Daily</span></td></tr>
           <tr><td class="k">AusTender</td><td>Australia</td><td>Federal; feed has no closing dates</td><td><span class="state">Daily</span></td></tr>
           <tr><td class="k">CanadaBuys</td><td>Canada</td><td>Federal</td><td><span class="state off">Blocked</span> access requested</td></tr>
@@ -300,7 +302,7 @@
 
   <section class="about" id="about">
     <div><h3>Why this exists</h3><p>Public contracts are open to anyone, but most small suppliers never see them because the notices are filed under codes they don't know. This is a free translation layer. No account, no cookies, no tracking.</p></div>
-    <div><h3>Read before you bid</h3><p>Closed notices are removed and each result links to its official notice. Australian notices have no deadline in the source feed, so we show them as undated rather than guess. Always confirm details on the official notice.</p></div>
+    <div><h3>Read before you bid</h3><p>Closed notices are removed and each result links to its official notice. Australian notices have no deadline in the source feed, so we show them as undated rather than guess. Brazilian tenders usually ask foreign bidders to register locally (SICAF) or appoint a representative. Always confirm details on the official notice.</p></div>
     <div><h3>Improve it</h3><p>The word-to-code dictionary is one plain JSON file. If your trade is missing, <a href="https://github.com/CreationNode/Tender-Finder">add it or tell us</a>. Contributions welcome.</p></div>
   </section>
 </main>
@@ -320,8 +322,8 @@ function esc(s){return String(s??"").replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&gt;
 // Grouped so it is obvious which markets have national sources, rather than listing every country
 // and silently returning little for most of them.
 const COUNTRY_GROUPS=[
-  ["National sources",[["GBR","United Kingdom"],["USA","United States"],["FRA","France"],["UKR","Ukraine"],["AUS","Australia"],["CAN","Canada"]]],
-  ["EU-wide (TED) only",[["AUT","Austria"],["BEL","Belgium"],["BGR","Bulgaria"],["HRV","Croatia"],["CYP","Cyprus"],["CZE","Czechia"],["DNK","Denmark"],["EST","Estonia"],["FIN","Finland"],["DEU","Germany"],["GRC","Greece"],["HUN","Hungary"],["IRL","Ireland"],["ITA","Italy"],["LVA","Latvia"],["LTU","Lithuania"],["LUX","Luxembourg"],["MLT","Malta"],["NLD","Netherlands"],["POL","Poland"],["PRT","Portugal"],["ROU","Romania"],["SVK","Slovakia"],["SVN","Slovenia"],["ESP","Spain"],["SWE","Sweden"],["NOR","Norway"],["ISL","Iceland"],["CHE","Switzerland"],["LIE","Liechtenstein"]]],
+  ["National sources",[["GBR","United Kingdom"],["USA","United States"],["FRA","France"],["UKR","Ukraine"],["AUS","Australia"],["CAN","Canada"],["BRA","Brazil"],["ESP","Spain"]]],
+  ["EU-wide (TED) only",[["AUT","Austria"],["BEL","Belgium"],["BGR","Bulgaria"],["HRV","Croatia"],["CYP","Cyprus"],["CZE","Czechia"],["DNK","Denmark"],["EST","Estonia"],["FIN","Finland"],["DEU","Germany"],["GRC","Greece"],["HUN","Hungary"],["IRL","Ireland"],["ITA","Italy"],["LVA","Latvia"],["LTU","Lithuania"],["LUX","Luxembourg"],["MLT","Malta"],["NLD","Netherlands"],["POL","Poland"],["PRT","Portugal"],["ROU","Romania"],["SVK","Slovakia"],["SVN","Slovenia"],["SWE","Sweden"],["NOR","Norway"],["ISL","Iceland"],["CHE","Switzerland"],["LIE","Liechtenstein"]]],
 ];
 const COUNTRY_NAME=Object.fromEntries(COUNTRY_GROUPS.flatMap(([,l])=>l));
 const sel=$("country");
@@ -389,7 +391,7 @@ function matchCodes(text,map){
   for(const entry of map.entries){
     for(const term of [...entry.terms].sort((a,b)=>b.length-a.length)){
       if(q.includes(term.toLowerCase())){
-        hits.push({label:entry.label,cpv:entry.cpv,psc:entry.psc||[],matched:term});
+        hits.push({label:entry.label,cpv:entry.cpv,psc:entry.psc||[],pt:entry.pt||[],matched:term});
         break;
       }
     }
@@ -578,6 +580,7 @@ async function run(){
       curatedLabels:hits.map(h=>h.label),
       matchedTerms:hits.map(h=>h.matched),   // cached sources match these as whole phrases
       pscCodes:[...new Set(hits.flatMap(h=>h.psc))],   // SAM.gov rows carry PSC, not CPV
+      ptTerms:[...new Set(hits.flatMap(h=>h.pt))].slice(0,40),   // Brazil's titles are Portuguese
       country:$("country").value,
       daysBack:90,limit:40,
       term:text                      // for telemetry only; filtered and truncated server-side

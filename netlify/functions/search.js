@@ -20,11 +20,13 @@ import * as prozorro from "../lib/sources/prozorro.js";
 import * as ukfts from "../lib/sources/ukfts.js";
 import * as ukcf from "../lib/sources/ukcf.js";
 import * as austender from "../lib/sources/austender.js";
+import * as pncp from "../lib/sources/pncp.js";
+import * as placsp from "../lib/sources/placsp.js";
 
 // The source registry. Order is irrelevant (they run in parallel); what matters is that each one
 // declares `enabled` and `countries`, so we never spend latency on a portal that cannot possibly
 // have results for the selected country.
-const SOURCES = [ted, boamp, sam, canadabuys, prozorro, ukfts, ukcf, austender];
+const SOURCES = [ted, boamp, sam, canadabuys, prozorro, ukfts, ukcf, austender, pncp, placsp];
 
 /** Which sources can serve this request? null `countries` means multi-country coverage. */
 function selectSources(country) {
@@ -50,6 +52,8 @@ export default async (request) => {
   const keywords = (body.keywords || []).slice(0, 10).map((k) => String(k).slice(0, 60));
   const curatedLabels = (body.curatedLabels || []).slice(0, 6).map((k) => String(k).slice(0, 80));
   const matchedTerms = (body.matchedTerms || []).slice(0, 6).map((k) => String(k).slice(0, 60));
+  // Portuguese dictionary terms for the matched entries, used by the Brazil index.
+  const ptTerms = (body.ptTerms || []).slice(0, 40).map((k) => String(k).slice(0, 60));
   const daysBack = Math.min(Math.max(parseInt(body.daysBack, 10) || 90, 1), 365);
   const country = (body.country || "").replace(/[^A-Z]/gi, "").slice(0, 3).toUpperCase();
   const limit = Math.min(Math.max(parseInt(body.limit, 10) || 40, 1), 100);
@@ -68,7 +72,7 @@ export default async (request) => {
   const origin = new URL(request.url).origin;
   const gsinCodes = (body.gsinCodes || []).slice(0, 5).map((c) => String(c).trim()).filter(Boolean);
   const unspscCodes = (body.unspscCodes || []).slice(0, 5).map((c) => String(c).replace(/\D/g, "")).filter(Boolean);
-  const params = { cpvCodes, keywords, curatedLabels, matchedTerms, pscCodes, naicsCodes, gsinCodes, unspscCodes,
+  const params = { cpvCodes, keywords, curatedLabels, matchedTerms, ptTerms, pscCodes, naicsCodes, gsinCodes, unspscCodes,
                    daysBack, country, limit, origin };
 
   const active = selectSources(country);

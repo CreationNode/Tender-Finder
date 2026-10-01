@@ -55,8 +55,10 @@ function stem(w) {
   return w;
 }
 
+// Accents are folded so "balístico", "balistico" and "BALÍSTICO" are one token: Brazilian titles
+// are often typed in capitals without accents.
 function words(text) {
-  return String(text || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2 && !STOP.has(w)).map(stem);
+  return String(text || "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 2 && !STOP.has(w)).map(stem);
 }
 
 // Whole-word token set per row, built once per loaded index (the index is memoised for 10 min).
@@ -99,7 +101,7 @@ function scoreRow(row, phrases, codes) {
  * Turn the request into phrases. A two-word query needs both words; a longer one may miss one
  * word, so "school furniture for classrooms" still finds "Classroom furniture".
  */
-function buildPhrases(params) {
+function buildPhrases(params, localTerms) {
   const phrases = [];
   const add = (text, weight) => {
     const ws = [...new Set(words(text))];
@@ -109,6 +111,8 @@ function buildPhrases(params) {
   };
   add((params.keywords || []).join(" "), 10);          // the user's own words rank highest
   for (const t of params.matchedTerms || []) add(t, 5);
+  // Dictionary terms in the source's own language ("colete balístico" for "body armour").
+  for (const t of localTerms ? localTerms(params) : []) add(t, 5);
   return phrases;
 }
 
@@ -124,7 +128,7 @@ export function cpvPrefixes(params) {
  * Build a search function for one cached index.
  * `codeMatcher` extracts the code tokens this source understands from the request (e.g. PSC/NAICS).
  */
-export function makeCachedSource({ id, label, countries, indexName, codeMatcher }) {
+export function makeCachedSource({ id, label, countries, indexName, codeMatcher, localTerms }) {
   return {
     id,
     label,
@@ -146,7 +150,7 @@ export function makeCachedSource({ id, label, countries, indexName, codeMatcher 
         ? Math.round((Date.now() - new Date(index.generatedAt)) / 3600000)
         : null;
 
-      const phrases = buildPhrases(params);
+      const phrases = buildPhrases(params, localTerms);
       const codes = codeMatcher ? codeMatcher(params) : [];
 
       if (!phrases.length && !codes.length) {
