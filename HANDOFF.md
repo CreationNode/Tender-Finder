@@ -13,7 +13,7 @@ has since received a later build from another session — **tender-finder-v3 (v1
 `site/` directory, a `GITHUB-SETUP.md`, and a decision to add **Spain PLACSP** as a ninth source before
 the repo goes to GitHub. If you have been given v3, it is the base; use this document for architecture
 and history, and diff against v3 before assuming any file path below. Open v3 items noted by the owner:
-PLACSP to be (re-)added if wanted, SAM key rotation, `data/cpv-full.json` to be copied in.
+PLACSP to be (re-)added if wanted, SAM key rotation. (`data/cpv-full.json` is now committed.)
 
 **Secrets.**
 - Never commit, log, echo, or write a credential into source, docs, commit messages or PR text.
@@ -133,8 +133,8 @@ Orchestrator guarantees (`search.js`):
 - `data/cpv-map.json` — curated dictionary: 78 concepts, ~426 plain-language terms → CPV codes (+ US
   and Canadian codes where relevant).
 - `data/cpv-full.json` — the full official CPV 2008 vocabulary (9,454 codes, ~380 KB), **generated**
-  from the EU XML via `node tools/build-cpv-list.mjs <path-to-cpv_2008.xml | .zip | URL>`. Not included
-  in the zip; must be generated or copied in. The official ZIP uses Deflate64, which neither Node nor
+  from the EU XML via `node tools/build-cpv-list.mjs <path-to-cpv_2008.xml | .zip | URL>`. Committed on
+  2026-10-01, built from https://ted.europa.eu/documents/d/ted/cpv_2008_xml on a GitHub runner. The official ZIP uses Deflate64, which neither Node nor
   PowerShell can extract — extract it with 7-Zip first (the tool raises an actionable error).
 - `assets/rank.mjs` — **shared** ranker used by both the site and `tools/rank-test.mjs`, so ranking is
   testable offline. Score = `hits*3 + partials`, +10 if all query words hit, +15 exact phrase, +6
@@ -152,7 +152,7 @@ assets/app.mjs                 Page script: search, translation strip, code chip
 assets/fonts/                  Self-hosted fonts and their SIL OFL licences.
 assets/rank.mjs                Shared CPV ranker (see 2.3).
 data/cpv-map.json              Curated dictionary.
-data/cpv-full.json             Generated full vocabulary (absent from zip).
+data/cpv-full.json             Generated full vocabulary (committed 2026-10-01).
 data/index/                    Local index output (README only in repo; real data lives on `indexes` branch).
 netlify.toml
 netlify/functions/search.js    Orchestrator.
