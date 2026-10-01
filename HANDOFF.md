@@ -333,10 +333,13 @@ now", not a bug.
 **P3 — more sources** (verify an *opportunity* feed exists before writing code; most procurement open
 data is award/contract history, which is the wrong shape — Mexico and the OCP Data Registry were both
 dead ends for this reason)
-14. Spain PLACSP (Atom; owner decided to add it — may already be in v3), Norway Doffin (endpoint not yet
-    verified), Netherlands TenderNed, Ireland eTenders (OCDS). Most will fit `ingest/lib/ocds.mjs`.
-    Poland (BZP/e-Zamówienia) is a high-value below-threshold market; the parameter names for its API
-    are in an official integration PDF behind a login ("Instrukcja integracji API BZP, Załącznik nr 3").
+14. Done 2026-10-01: Spain PLACSP, Brazil PNCP, Netherlands TenderNed (public TNS webservice, CC0) and
+    Poland BZP (open notice API: PageSize/PageNumber/PublicationDateFrom/To, verified live).
+    Italy is open: ANAC's documented open-data portal (dati.anticorruzione.it) answers GitHub runners
+    with an F5 "URL rejected" 403, and the legal-publicity platform's JSON API
+    (pubblicitalegale.anticorruzione.it/api/v0/...) works keyless but is the site's own undocumented
+    backend, not a feed published for reuse. The owner chose (2026-10-01) to use it with light,
+    identified use, but a cloud session's safety check refused to probe it, so it is not built yet. Still unverified: Norway Doffin, Ireland eTenders (OCDS).
 15. Adding a source: (a) ingester in `ingest/sources/`, (b) register in `ingest/run.mjs` `INGESTERS`,
     (c) cached wrapper in `netlify/lib/sources/`, (d) add to `SOURCES` in `search.js`, (e) set the
     country tile to `"deep"` in `TILES` in `index.html`, (f) README + SOURCES.md rows.
