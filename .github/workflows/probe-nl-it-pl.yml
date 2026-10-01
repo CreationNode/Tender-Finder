@@ -1,4 +1,4 @@
-name: Probe UK notice links (temporary)
+name: Probe UK notice ids (temporary)
 on:
   push:
     branches: [probe-nl-it-pl]
@@ -7,15 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - run: |
-          set +e
-          UA="Mozilla/5.0 (compatible; WhatTheyBuy/1.0; +https://github.com/CreationNode/Tender-Finder)"
-          for u in \
-            "https://www.find-tender.service.gov.uk/Notice/ocds-h6vhtk-077e22" \
-            "https://www.contractsfinder.service.gov.uk/notice/ocds-b5fd17-057d7830-e222-4563-b5f7-a5a6797e780d" \
-            "https://www.contractsfinder.service.gov.uk/Notice/057d7830-e222-4563-b5f7-a5a6797e780d" \
-            "https://prozorro.gov.ua/tender/UA-2026-09-25-013107-a" ; do
-            curl -sS -A "$UA" -o body.html -w "%{http_code} %{url_effective} final=%{redirect_url} size=%{size_download}\n" -L "$u"
-            grep -o -i -m3 "<title>[^<]*</title>\|page not found\|cannot be found\|not found" body.html | head -3
-          done
-          curl -sS -A "$UA" "https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages/ocds-h6vhtk-077e22" | head -c 600; echo
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: node probe/uk.mjs
