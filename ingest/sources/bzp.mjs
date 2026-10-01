@@ -10,14 +10,17 @@
 //
 // VERIFIED from a GitHub runner (2026-10-01): keyless JSON; PageSize 500 works, 2000 is rejected;
 // rows carry CPV codes, the offer deadline (submittingOffersDate) and the buyer. robots.txt has no
-// rules. Paging over a long window is not stably ordered, so each window is split in half until it
-// fits in one page.
+// rules.
 //
-// MEASURED (2026-10-01): every row includes the full notice as HTML (~28 KB), so 27,000 rows were
-// ~750 MB and an 8-minute budget covered only part of the window. To stay light, runs are
-// incremental: each run reads only what was published since the last run (plus a day of overlap),
-// and a one-off backfill walks back towards BZP_LOOKBACK_DAYS across the first few runs. Rows drop
-// out when their offer deadline passes.
+// MEASURED (2026-10-01):
+// - The date filter works on whole days: the time of day is ignored, so a day cannot be split into
+//   smaller windows. Each day is read page by page instead (a few hundred notices a day).
+// - Every row includes the full notice as HTML (~28 KB), so a day is ~10 MB. To stay light, runs are
+//   incremental: each run re-reads today and yesterday, plus any day in the last BZP_LOOKBACK_DAYS
+//   (default 35) not yet read, newest first, within BZP_BUDGET_MS. The first runs backfill.
+// - The API answers some requests with HTTP 403 and accepts the same request after a pause, so
+//   requests are spaced (BZP_DELAY_MS, default 3 s) and a refusal waits 15 s, then 45 s.
+// Rows drop out when their offer deadline passes.
 
 import { toRow } from "../lib/index-format.mjs";
 import { fetchText } from "../lib/http.mjs";
@@ -30,7 +33,7 @@ const PAGE = Number(process.env.BZP_PAGE_SIZE || 250);
 const isoDate = (v) => (/^(\d{4}-\d{2}-\d{2})/.exec(String(v || "")) || [])[1] || "";
 const clean = (s) => String(s || "").replace(/\s+/g, " ").trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const stamp = (ms) => new Date(ms).toISOString().slice(0, 19);
+const dayOf = (ms) => new Date(ms).toISOString().slice(0, 10);
 
 export function toNoticeRow(n) {
   const cpv = [...new Set([...String(n.cpvCode || "").matchAll(/(\d{8})-\d/g)].map((m) => m[1]))].slice(0, 6);
@@ -51,20 +54,17 @@ export function toNoticeRow(n) {
 
 export async function ingest({ fetchImpl = fetchText, log = console.log, previousRows = [], previousState = {} } = {}) {
   const lookbackDays = Number(process.env.BZP_LOOKBACK_DAYS || 35);
-  const delayMs = Number(process.env.BZP_DELAY_MS ?? 1000);
+  const delayMs = Number(process.env.BZP_DELAY_MS ?? 3000);
   const budgetMs = Number(process.env.BZP_BUDGET_MS || 8 * 60 * 1000);
+  const maxPagesPerDay = 20;
   const startedAt = Date.now();
-  const now = startedAt;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dayOf(startedAt);
   const byId = new Map(previousRows.map((r) => [r[0], r]));
-  let requests = 0, read = 0, failed = 0, retried = 0, outOfTime = false;
+  let requests = 0, read = 0, retried = 0, daysRead = 0;
   const notes = [];
 
-  // MEASURED (2026-10-01): the API answers some requests with an error even at one request a
-  // second (2 of 3 failed when a second run started straight after a first). So a failure waits
-  // (Retry-After, else 15 s, then 45 s) and retries before the window is given up for this run.
-  async function fetchWindow(from, to) {
-    const url = `${API}?NoticeType=ContractNotice&PublicationDateFrom=${stamp(from)}&PublicationDateTo=${stamp(to)}&PageSize=${PAGE}&PageNumber=1`;
+  async function fetchPage(day, page) {
+    const url = `${API}?NoticeType=ContractNotice&PublicationDateFrom=${day}T00:00:00&PublicationDateTo=${day}T23:59:59&PageSize=${PAGE}&PageNumber=${page}`;
     let lastError;
     for (let attempt = 0; attempt < 3; attempt++) {
       if (requests > 0) await sleep(attempt ? Math.min(120, lastError.retryAfter || 15 * 3 ** (attempt - 1)) * 1000 : delayMs);
@@ -78,74 +78,53 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
         lastError = Object.assign(new Error(`HTTP ${res.status}`), { retryAfter: res.retryAfter });
       } catch (err) { lastError = err; }
       retried++;
-      log(`BZP: ${lastError.message.split(" reading ")[0]} for ${stamp(from)}..${stamp(to)} (attempt ${attempt + 1})`);
+      log(`BZP: ${lastError.message.split(" reading ")[0]} for ${day} page ${page} (attempt ${attempt + 1})`);
     }
     throw lastError;
   }
 
-  // Reads [from, to), splitting it in half while a window fills a page, so no row depends on
-  // unstable paging. Returns false if the time budget ran out or a request failed (the window
-  // then counts as not done, and is retried next run).
-  async function collect(from, to) {
-    if (Date.now() - startedAt > budgetMs) { outOfTime = true; return false; }
-    let list;
-    try { list = await fetchWindow(from, to - 1000); }
-    catch (err) {
-      failed++;
-      if (read === 0 && failed >= 2) throw new Error(`BZP: no window could be read (${err.message})`);
-      return false;
+  // Reads one whole day; true only if every page was read.
+  async function readDay(day) {
+    for (let page = 1; page <= maxPagesPerDay; page++) {
+      if (Date.now() - startedAt > budgetMs) return false;
+      const list = await fetchPage(day, page);
+      for (const n of list) {
+        read++;
+        const row = toNoticeRow(n);
+        if (!row[0] || !row[1] || !row[4] || row[4] < today) continue;
+        byId.set(row[0], row);
+      }
+      if (list.length < PAGE) return true;
     }
-    if (list.length >= PAGE && to - from > 10 * 60 * 1000) {
-      const mid = from + Math.floor((to - from) / 2);
-      return (await collect(from, mid)) && collect(mid, to);
-    }
-    for (const n of list) {
-      read++;
-      const row = toNoticeRow(n);
-      if (!row[0] || !row[1] || !row[4] || row[4] < today) continue;
-      byId.set(row[0], row);
-    }
+    notes.push(`${day} has more than ${maxPagesPerDay} pages`);
     return true;
   }
 
-  // Day-sized windows walking back from `to` to `stop`; returns the oldest point fully read.
-  async function walkBack(to, stop) {
-    while (to > stop) {
-      const from = Math.max(stop, to - 864e5);
-      if (!(await collect(from, to))) break;
-      to = from;
+  // Days already read in full by earlier runs. Today and yesterday are always re-read, because
+  // notices keep arriving until a day is over.
+  const window = Array.from({ length: lookbackDays }, (_, i) => dayOf(startedAt - i * 864e5));
+  const done = new Set((previousState.doneDays || []).filter((d) => window.includes(d) && d < dayOf(startedAt - 864e5)));
+  let stopped = "";
+  for (const day of window) {
+    if (done.has(day)) continue;
+    try {
+      if (!(await readDay(day))) { stopped = "time budget reached"; break; }
+    } catch (err) {
+      if (!read) throw new Error(`BZP: could not read ${day}: ${err.message}`);
+      stopped = `stopped at ${day}: ${err.message.split(" reading ")[0]}`;
+      break;
     }
-    return to;
+    done.add(day);
+    daysRead++;
   }
-
-  const limit = now - lookbackDays * 864e5;
-  // 1. New since the last run (with a day of overlap for late-indexed notices).
-  const lastNewest = Date.parse(previousState.newest || "") || 0;
-  const headStop = lastNewest ? Math.max(limit, lastNewest - 864e5) : limit;
-  const headReached = await walkBack(now, headStop);
-  // The head is always read from now backwards, so `newest` can move to now. If it did not reach
-  // the last run's point (or this is the first run), the unread part is left to the backfill
-  // cursor, which then restarts from where the head stopped (re-reading some days, never skipping).
-  let oldest = Date.parse(previousState.oldest || "") || now;
-  if (!lastNewest || headReached > headStop) oldest = headReached;
-  // 2. Backfill towards the lookback limit, within what is left of the budget.
-  if (oldest > limit && !outOfTime) oldest = await walkBack(oldest, limit);
-  if (outOfTime) notes.push("time budget reached; continues next run");
+  if (stopped) notes.push(stopped + "; continues next run");
 
   let expired = 0;
   for (const [id, row] of byId) if (row[4] < today) { byId.delete(id); expired++; }
 
   const rows = [...byId.values()];
-  const backfillDone = oldest <= limit;
-  log(`BZP: ${requests} request(s), ${failed} failed, ${read} contract notices read, ${expired} expired; index now ${rows.length}; backfill ${backfillDone ? "complete" : `back to ${new Date(oldest).toISOString().slice(0, 10)}`}`);
-  notes.push(`requests ${requests}`, `retried ${retried}`, `windows failed ${failed}`, `read ${read}`, backfillDone ? "backfill complete" : "backfill continuing");
-  return {
-    rows,
-    notes,
-    state: {
-      newest: new Date(now).toISOString(),
-      oldest: new Date(oldest).toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  };
+  const missing = window.filter((d) => !done.has(d)).length;
+  log(`BZP: ${requests} request(s), ${retried} retried, ${daysRead} day(s) read, ${read} notices read, ${expired} expired; index now ${rows.length}; ${missing ? `${missing} day(s) still to backfill` : "backfill complete"}`);
+  notes.push(`requests ${requests}`, `retried ${retried}`, `days ${daysRead}`, `read ${read}`, missing ? `${missing} days to backfill` : "backfill complete");
+  return { rows, notes, state: { doneDays: [...done].sort(), updatedAt: new Date().toISOString() } };
 }
