@@ -10,7 +10,10 @@
 // the next 60 days, ordered oldest-published first. Page size is capped at 50 (500 returns HTTP 400),
 // so a full sweep is ~550 requests. PNCP serves no robots.txt (404) and documents the API publicly.
 //
-// That is too many requests to repeat in full every day without being a nuisance, so each run:
+// PNCP rate-limits: an unpaced crawl got HTTP 429 after 8 requests. So requests are spaced
+// (PNCP_DELAY_MS, default 1.5 s), a 429 waits for Retry-After (or 30 s) and retries up to 3 times.
+//
+// A full sweep is therefore longer than one run should take, so each run:
 //   1. reads the LAST pages first, where newly published procurements land, and
 //   2. spends the rest of its budget continuing a ring cursor through the older pages.
 // Rows merge into the previous index; anything past its closing date is pruned. A procurement
@@ -54,7 +57,7 @@ function toNoticeRow(c) {
 
 export async function ingest({ fetchImpl = politeFetch, log = console.log, previousRows = [], previousState = {} } = {}) {
   const budgetMs = Number(process.env.PNCP_BUDGET_MS || 10 * 60 * 1000);
-  const tailPages = Number(process.env.PNCP_TAIL_PAGES || 20);
+  const tailPages = Number(process.env.PNCP_TAIL_PAGES || 30);
   const horizonDays = Number(process.env.PNCP_HORIZON_DAYS || 180);
   const startedAt = Date.now();
   const today = new Date().toISOString().slice(0, 10);
@@ -66,10 +69,23 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
   let requests = 0, kept = 0, failed = 0;
   const notes = [];
 
+  const delayMs = Number(process.env.PNCP_DELAY_MS ?? 1500);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let throttled = 0;
+
   async function page(n) {
     const url = `${API}?dataFinal=${dataFinal}&pagina=${n}&tamanhoPagina=${PAGE_SIZE}`;
-    requests++;
-    const res = await fetchImpl(url, { headers: { accept: "application/json" } });
+    let res;
+    for (let attempt = 0; ; attempt++) {
+      if (requests > 0) await sleep(delayMs);
+      requests++;
+      res = await fetchImpl(url, { headers: { accept: "application/json" }, retries: 0 });
+      if (res.status !== 429 || attempt >= 3) break;
+      throttled++;
+      const wait = Math.min(Number(res.headers?.get?.("retry-after")) || 30, 120);
+      log(`PNCP: rate limited on page ${n}; waiting ${wait} s`);
+      await sleep(wait * 1000);
+    }
     if (res.status === 204) return { data: [], totalPaginas: 0 };
     if (!res.ok) throw new Error(`HTTP ${res.status} on page ${n}`);
     const body = await res.json();
@@ -122,7 +138,7 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
 
   const rows = [...byId.values()];
   log(`PNCP: ${requests} request(s), ${failed} failed, ${kept} rows refreshed, ${expired} expired pruned; index now ${rows.length}`);
-  notes.push(`requests ${requests}`, `failed ${failed}`, `pages ${totalPages}`, `cursor ${cursor}`, wrapped ? "ring wrapped" : "ring continuing");
+  notes.push(`requests ${requests}`, `failed ${failed}`, `throttled ${throttled}`, `pages ${totalPages}`, `cursor ${cursor}`, wrapped ? "ring wrapped" : "ring continuing");
 
   return {
     rows,

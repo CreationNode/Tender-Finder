@@ -21,11 +21,12 @@ import * as ukfts from "../lib/sources/ukfts.js";
 import * as ukcf from "../lib/sources/ukcf.js";
 import * as austender from "../lib/sources/austender.js";
 import * as pncp from "../lib/sources/pncp.js";
+import * as placsp from "../lib/sources/placsp.js";
 
 // The source registry. Order is irrelevant (they run in parallel); what matters is that each one
 // declares `enabled` and `countries`, so we never spend latency on a portal that cannot possibly
 // have results for the selected country.
-const SOURCES = [ted, boamp, sam, canadabuys, prozorro, ukfts, ukcf, austender, pncp];
+const SOURCES = [ted, boamp, sam, canadabuys, prozorro, ukfts, ukcf, austender, pncp, placsp];
 
 /** Which sources can serve this request? null `countries` means multi-country coverage. */
 function selectSources(country) {

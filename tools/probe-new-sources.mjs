@@ -2,7 +2,7 @@
 // Deleted before merge.
 import { politeFetch } from "../ingest/lib/http.mjs";
 import { ingest } from "../ingest/sources/pncp.mjs";
-for (const u of ["https://contrataciondelestado.es/robots.txt", "https://www.hacienda.gob.es/robots.txt", "https://datos.gob.es/robots.txt"]) {
+for (const u of []) {
   try { const r = await politeFetch(u, { timeoutMs: 30000 }); console.log(`\n==== ${u} HTTP ${r.status}\n${(await r.text()).slice(0, 1200)}`); }
   catch (e) { console.log(u, "ERROR", e.message); }
 }
