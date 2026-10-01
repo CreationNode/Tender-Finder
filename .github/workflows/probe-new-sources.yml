@@ -1,0 +1,14 @@
+name: Probe new sources (temporary)
+on:
+  push:
+    branches: [brazil-spain-sources]
+    paths: [tools/probe-new-sources.mjs, .github/workflows/probe-new-sources.yml]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: node tools/probe-new-sources.mjs
