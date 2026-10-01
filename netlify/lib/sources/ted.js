@@ -25,6 +25,8 @@ const ENDPOINT = "https://api.ted.europa.eu/v3/notices/search";
 const FIELDS = [
   "publication-number", "notice-title", "buyer-name", "buyer-country",
   "publication-date", "deadline-receipt-tender-date-lot", "classification-cpv",
+  // Shared by a notice and its corrections, so dedupe() can show each procedure once.
+  "procedure-identifier",
 ];
 
 function ymd(daysAgo) {
@@ -58,7 +60,7 @@ function buildAttempts({ cpvCodes, keywords, daysBack, country }) {
   return a;
 }
 
-function toNotice(row) {
+export function toNotice(row) {
   const pub = normaliseText(row["publication-number"]) || normaliseText(row.ND);
   const deadline = (normaliseText(row["deadline-receipt-tender-date-lot"]) || normaliseText(row["deadline-date-lot"]) || "").slice(0, 10);
   const title = normaliseText(row["notice-title"]) || normaliseText(row["title-proc"]) || normaliseText(row.TI);
@@ -72,6 +74,7 @@ function toNotice(row) {
     daysLeft: daysUntil(deadline),
     cpv: normaliseText(row["classification-cpv"]),
     link: pub ? `https://ted.europa.eu/en/notice/-/detail/${pub}` : "https://ted.europa.eu/en/search",
+    procedure: normaliseText(row["procedure-identifier"]),
     source: id,
   };
 }
