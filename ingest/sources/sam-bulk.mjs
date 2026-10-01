@@ -113,7 +113,7 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log } = {}
     const body = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 200);
     throw new Error(
       `SAM returned HTTP ${res.status} for the bulk extract.\n` +
-      `    URL: ${url.replace(/api_key=[^&]+/, "api_key=***")}\n` +
+      `    URL: ${url.replace(/api_key=[^&]+/g, "api_key=***")}\n` +
       `    ${body ? "Response: " + body : "No response body."}\n` +
       `    Verify SAM_BULK_CSV_URL against SAM.gov > Data Services > Contract Opportunities.`
     );

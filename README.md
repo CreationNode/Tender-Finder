@@ -12,7 +12,10 @@ numeric CPV codes, not words. This is the translation layer.
 2. In Netlify: **Add new site -> Import an existing project**, pick the repo.
 3. Leave the build command empty; publish directory `.`; functions directory `netlify/functions`.
    (`netlify.toml` already sets this.)
-4. Deploy. That's it — no environment variables, no database, no API key.
+4. Deploy. No database and no build step. Environment variables: `INDEX_BASE_URL` (where the daily
+   indexes are published; this site uses the `indexes` branch on raw.githubusercontent.com) and,
+   optionally, `STATS_KEY` (opens the private stats endpoint). Ingest keys (`SAM_API_KEY`,
+   `DOFFIN_API_KEY`) live only in GitHub Actions secrets.
 
 Local preview: `npm i -g netlify-cli && netlify dev`
 
@@ -144,19 +147,11 @@ the previous index. Set a calendar reminder anyway.
 | OEV | working | Daily eForms zip from `api/notice-exports?pubDay=...&format=eforms.zip` (~4 MB, ~1,100 notices a day on 2026-09-30, ~350 calls for competition). Only notices under national rules (`de-uvgo`, `de-vob`, ...) are kept, about 35 a day; EU-directive notices are on TED (`OEV_INCLUDE_EU=1` keeps them). Keyed by contract folder and applied oldest first, so a result notice removes the call. Today, yesterday and any unread day in `OEV_LOOKBACK_DAYS` (default 45) are read each run |
 | Doffin | working | 1,050 active notices on 2026-10-01. A query reaches only its first 1,000 hits, so a second ascending sweep reads the oldest. Pre-announcements without a deadline are skipped. About 30 requests per rate-limit window; requests 2.5 s apart. EEA-threshold notices are also on TED and can show twice |
 
-### Settling the CanadaBuys 403 (temporary probe)
+### CanadaBuys
 
-`netlify/functions/probe.js` answers one question: is the 403 bot protection against home IPs, or a
-bad URL? Netlify runs from a datacentre IP, which government CDNs often allow where they block
-residential connections.
-
-1. Netlify -> Site configuration -> Environment variables -> add `PROBE_KEY` = any random string.
-2. Deploy, then open `https://YOUR-SITE.netlify.app/.netlify/functions/probe?key=YOUR-VALUE`.
-3. Read the `verdict` field.
-4. **Delete `netlify/functions/probe.js`** once answered.
-
-It only GETs a fixed allow-list of public open-data URLs, returns status codes plus the first ~180
-bytes, and requires the shared secret — it cannot be used as an open proxy.
+CanadaBuys returns HTTP 403 to every request from our servers and from GitHub Actions runners, so it
+is switched off (`CANADABUYS_ENABLED=1` in Netlify turns the search side back on) and listed as
+blocked on the page. The fix is access from the operator, never a workaround.
 
 ### Finding the AusTender feed URL
 
@@ -389,9 +384,10 @@ https://simap.ted.europa.eu/cpv
 
 ## Honest limitations
 
-- **TED only.** It covers EU notices above the EU thresholds, plus whatever member states publish
-  there voluntarily. Many smaller national contracts appear only on national portals — this tool does
-  not see those yet.
+- **National coverage is uneven.** TED covers EU notices above the EU thresholds; below-threshold
+  notices are searched only where a national source is wired in (France, Spain, the Netherlands,
+  Poland, Germany, Norway, the UK, plus the US, Brazil, Ukraine and Australia). Other countries'
+  smaller contracts appear only on their national portals, which this tool does not see yet.
 - **The dictionary is a starter set,** not the full ~9,500-code CPV list. Unmatched words fall back to
   a full-text search, which is broader and noisier.
 - **Always confirm on the official notice** before acting. Deadlines and requirements change.
