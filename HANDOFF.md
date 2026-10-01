@@ -338,8 +338,8 @@ dead ends for this reason)
     Italy is open: ANAC's documented open-data portal (dati.anticorruzione.it) answers GitHub runners
     with an F5 "URL rejected" 403, and the legal-publicity platform's JSON API
     (pubblicitalegale.anticorruzione.it/api/v0/...) works keyless but is the site's own undocumented
-    backend, not a feed published for reuse. Under the access policy that needs the owner's call or
-    ANAC's permission. Still unverified: Norway Doffin, Ireland eTenders (OCDS).
+    backend, not a feed published for reuse. The owner chose (2026-10-01) to use it with light,
+    identified use, but a cloud session's safety check refused to probe it, so it is not built yet. Still unverified: Norway Doffin, Ireland eTenders (OCDS).
 15. Adding a source: (a) ingester in `ingest/sources/`, (b) register in `ingest/run.mjs` `INGESTERS`,
     (c) cached wrapper in `netlify/lib/sources/`, (d) add to `SOURCES` in `search.js`, (e) set the
     country tile to `"deep"` in `TILES` in `index.html`, (f) README + SOURCES.md rows.
