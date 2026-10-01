@@ -71,16 +71,16 @@ export async function politeFetch(url, { headers = {}, timeoutMs = 60000, retrie
  * Fetch and read the whole body under ONE deadline. politeFetch's timeout only covers the response
  * headers, so a server that stalls mid-body hangs the caller forever: this is what froze the first
  * PLACSP run (4 MB pages) for 30 minutes until the job was cancelled.
- * Returns { ok, status, text, retryAfter }.
+ * Returns { ok, status, text, retryAfter }; with `binary: true`, the body is in `bytes` (a Buffer).
  */
-export async function fetchText(url, { headers = {}, timeoutMs = 90000, retries = 1 } = {}) {
+export async function fetchText(url, { headers = {}, timeoutMs = 90000, retries = 1, binary = false } = {}) {
   for (let attempt = 0; ; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetch(url, { headers: ingestHeaders(headers), signal: controller.signal });
-      const text = res.ok ? await res.text() : "";
-      return { ok: res.ok, status: res.status, text, retryAfter: Number(res.headers.get("retry-after")) || 0 };
+      const body = !res.ok ? "" : binary ? Buffer.from(await res.arrayBuffer()) : await res.text();
+      return { ok: res.ok, status: res.status, text: binary ? "" : body, bytes: binary ? body : null, retryAfter: Number(res.headers.get("retry-after")) || 0 };
     } catch (err) {
       if (attempt >= retries) throw new Error(`${err.name === "AbortError" ? "timed out" : err.message} reading ${url}`);
       await new Promise((r) => setTimeout(r, 3000));

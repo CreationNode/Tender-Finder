@@ -55,6 +55,7 @@ jobs:
         timeout-minutes: 52
         env:
           SAM_API_KEY: ${{ secrets.SAM_API_KEY }}
+          DOFFIN_API_KEY: ${{ secrets.DOFFIN_API_KEY }}
           SAM_BULK_CSV_URL: ${{ secrets.SAM_BULK_CSV_URL }}
           FORCE: ${{ inputs.force && '1' || '0' }}
         run: node ingest/run.mjs
