@@ -57,8 +57,9 @@ export function normaliseText(value) {
  *     while national portals show the original (Doffin: "Vintervedlikehold Region Vest" vs TED:
  *     "Winter maintenance Region West"), so titles alone missed 346 of 369 Norwegian pairs
  *     (measured 2026-10-01). The buyer match only counts when that buyer has exactly one notice
- *     with that deadline on each side, so a buyer closing two tenders on one day is never merged.
- * Repeated versions of one TED procedure (a notice and its corrections) collapse to the first seen.
+ *     with that deadline on each side, so a buyer closing two tenders on one day is never merged,
+ *     and, when both carry CPV codes, they must share a CPV group.
+ * Repeated versions of one TED procedure (a notice and its corrections) collapse to the latest.
  */
 export function dedupe(notices) {
   const tokens = (s) =>
@@ -85,16 +86,29 @@ export function dedupe(notices) {
     return false;
   };
 
-  // Repeated versions of one procedure from the same source: keep the first seen.
-  const seen = new Set();
-  const list = notices.filter((n) => {
-    if (!n.procedure) return true;
+  // CPV groups (first three digits). When both notices carry codes they must share one, so a buyer's
+  // furniture tender is never taken for its cleaning tender.
+  const groups = (cpv) => new Set((String(cpv || "").match(/\b\d{8}\b/g) || []).map((c) => c.slice(0, 3)));
+  const sameGroup = (a, b) => {
+    const ga = groups(a.cpv), gb = groups(b.cpv);
+    if (!ga.size || !gb.size) return true;
+    for (const g of ga) if (gb.has(g)) return true;
+    return false;
+  };
+
+  // Repeated versions of one procedure from the same source (a notice and its corrections, which
+  // can move the deadline): keep only the most recently published.
+  const latest = new Map();
+  for (const n of notices) {
+    if (!n.procedure) continue;
     const key = `${n.source}|${n.procedure}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-  const sameSlot = (a, b) => a.country === b.country && a.deadline && a.deadline === b.deadline && a.buyer && b.buyer && sameBuyer(a.buyer, b.buyer);
+    const cur = latest.get(key);
+    if (!cur || String(n.published || "") > String(cur.published || "")) latest.set(key, n);
+  }
+  const list = notices.filter((n) => !n.procedure || latest.get(`${n.source}|${n.procedure}`) === n);
+  const sameSlot = (a, b) =>
+    a.country === b.country && a.deadline && a.deadline === b.deadline &&
+    a.buyer && b.buyer && sameBuyer(a.buyer, b.buyer) && sameGroup(a, b);
   // A buyer match only counts when it is unambiguous: exactly one notice on each side.
   const unique = (a, b) =>
     list.filter((m) => m.source === b.source && sameSlot(a, m)).length === 1 &&
