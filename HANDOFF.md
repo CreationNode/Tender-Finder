@@ -362,5 +362,5 @@ the real SEO lever is a few genuinely useful static explainer pages per country)
 - Code comments explain *why* (most past bugs are documented inline at the fix site — keep that habit).
 - The owner prefers direct, detailed explanations and substantive pushback over agreement; flag
   architectural problems plainly rather than working around them.
-- There is no LICENSE file yet; the README only says "released for public benefit". Ask the owner which
-  licence (e.g. MIT/Apache-2.0 for code) before publishing the repo.
+- The code is MIT-licensed (owner's choice, 2026-10-01; see `LICENSE`). The licence covers the code and
+  dictionary, not the tender data, which stays under each portal's own terms.
