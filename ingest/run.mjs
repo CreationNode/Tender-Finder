@@ -23,11 +23,13 @@ import * as ukCf from "./sources/uk-cf.mjs";
 import * as austender from "./sources/austender.mjs";
 import * as pncp from "./sources/pncp.mjs";
 import * as placsp from "./sources/placsp.mjs";
+import * as tenderned from "./sources/tenderned.mjs";
+import * as bzp from "./sources/bzp.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(HERE, "..", "data", "index");
 
-const INGESTERS = { sam: samBulk, canadabuys, prozorro, ukfts: ukFts, ukcf: ukCf, austender, pncp, placsp };
+const INGESTERS = { sam: samBulk, canadabuys, prozorro, ukfts: ukFts, ukcf: ukCf, austender, tenderned, bzp, pncp, placsp };
 
 function readJson(file, fallback = null) {
   try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return fallback; }

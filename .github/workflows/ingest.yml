@@ -24,7 +24,7 @@ concurrency:
 jobs:
   ingest:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -50,9 +50,9 @@ jobs:
       # as CanadaBuys does not make every daily run look broken.
       - name: Run ingestion
         continue-on-error: true
-        # Leaves time inside the 45-minute job for the publish step, which runs even after a timeout,
+        # Leaves time inside the 60-minute job for the publish step, which runs even after a timeout,
         # so a slow source costs only its own update, never everyone's.
-        timeout-minutes: 38
+        timeout-minutes: 52
         env:
           SAM_API_KEY: ${{ secrets.SAM_API_KEY }}
           SAM_BULK_CSV_URL: ${{ secrets.SAM_BULK_CSV_URL }}
