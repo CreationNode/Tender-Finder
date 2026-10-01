@@ -1,21 +1,34 @@
-name: Probe NL/IT/PL sources (temporary)
+name: Probe DE/NO sources (temporary)
 on:
   push:
     branches: [probe-nl-it-pl]
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-        with: { ref: netherlands-poland }
-      - uses: actions/setup-node@v4
-        with: { node-version: "20" }
-      - run: |
-          time node ingest/run.mjs bzp || true
-          jq -c '.doneDays' data/index/bzp.state.json
-          time node ingest/run.mjs bzp || true
-          jq -c '.doneDays' data/index/bzp.state.json
-          jq -c '{count, notes}' data/index/bzp.json
-          jq -c '[.rows[] | .[5]] | group_by(.) | map({(.[0]): length}) | add' data/index/bzp.json
-          jq -c '[.rows[] | .[4]] | group_by(.) | map({(.[0]): length}) | add' data/index/bzp.json
+      - env:
+          DOFFIN_API_KEY: ${{ secrets.DOFFIN_API_KEY }}
+        run: |
+          UA="Mozilla/5.0 (compatible; OpenTenderFinder/1.0; public-interest tender search; +https://github.com/tender-finder)"
+          echo "=== robots"; curl -sS --max-time 30 -A "$UA" https://oeffentlichevergabe.de/robots.txt | head -30
+          for f in eforms.zip ocds.zip; do
+            curl -sS --max-time 180 -A "$UA" "https://oeffentlichevergabe.de/api/notice-exports?pubDay=2026-09-30&format=$f" -o /tmp/d.$f -w "pubDay $f HTTP %{http_code} bytes=%{size_download} type=%{content_type} t=%{time_total}\n"
+            sleep 3
+          done
+          mkdir -p /tmp/ef && cd /tmp/ef && unzip -q -o /tmp/d.eforms.zip && ls | head -3 && ls | wc -l
+          echo "subtype tally:"; grep -ho '<efbc:NoticeSubType[^>]*>[^<]*<\|listName="notice-subtype"[^>]*>[^<]*<' * 2>/dev/null | sed 's/.*>//' | sort | uniq -c | sort -rn | head -20
+          grep -hoE '<cbc:NoticeTypeCode[^>]*>[^<]*<' * | sort | uniq -c | sort -rn | head -12
+          echo "legal basis:"; grep -hoE '<cbc:RegulatoryDomain>[^<]*<|<cbc:ID schemeName="ELI">[^<]*<' * | sort | uniq -c | sort -rn | head -10
+          f=$(grep -l 'TenderSubmissionDeadlinePeriod' * | head -1); echo "sample with deadline: $f"
+          grep -oE '<cbc:(ID|Name|EndDate|EndTime|ItemClassificationCode|IssueDate)[^>]*>[^<]{0,120}<' "$f" | head -40
+          echo "with deadline: $(grep -l 'TenderSubmissionDeadlinePeriod' * | wc -l) of $(ls | wc -l)"
+          echo "bytes per notice: $(du -sb . | cut -f1)"
+          cd /tmp; mkdir -p oc && cd oc && unzip -q -o /tmp/d.ocds.zip 2>/dev/null && ls | head -3 && head -c 1500 "$(ls | head -1)"; echo
+          sleep 3; curl -sS --max-time 60 -A "$UA" "https://oeffentlichevergabe.de/api/notice-exports?pubMonth=2026-09&format=eforms.zip" -o /dev/null -w "pubMonth HTTP %{http_code} bytes=%{size_download}\n" --range 0-100
+          echo "=== Doffin"
+          if [ -n "$DOFFIN_API_KEY" ]; then
+            for u in "https://api.doffin.no/public/v2/search?numHitsPerPage=2&page=1" "https://api.doffin.no/public/v1/notices/search?pageSize=2&page=1"; do
+              curl -sS --max-time 30 -A "$UA" -H "Ocp-Apim-Subscription-Key: $DOFFIN_API_KEY" "$u" -o /tmp/n.json -w "$u HTTP %{http_code} bytes=%{size_download}\n"; head -c 2500 /tmp/n.json; echo; sleep 2
+            done
+          else echo "no DOFFIN_API_KEY secret yet"; fi
