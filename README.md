@@ -72,6 +72,7 @@ ingested for it.
 | **PNCP** | Brazil, all levels of government | none | paged "open for proposals" API -> index | Brazilian public open data (verify) | cached |
 | **TENDERNED** | Netherlands, national notices (EU ones come from TED) | none | public TNS publication webservice -> index | CC0 (data.overheid.nl) | cached |
 | **BZP** | Poland, **below-threshold** | none | BZP notice API (no access request needed, per UZP API terms) -> index | Polish public information (verify) | cached |
+| **OEV** | Germany, national notices (EU ones come from TED) | none | oeffentlichevergabe.de OpenData daily eForms exports -> index | open data (reported CC0; verify) | cached |
 
 Sources declare which countries they cover, so a US search never spends latency on TED and a French
 search never calls SAM.gov. The coverage line under the results says which portals answered, which
@@ -138,6 +139,7 @@ the previous index. Set a calendar reminder anyway.
 | PNCP | working | ~27,000 open procurements, 50 per page (the API rejects larger pages). Each run reads the newest pages, then continues a ring cursor through the rest within `PNCP_BUDGET_MS` (default 12 min, about 200 pages; the full ring takes about three days). Expect an index of roughly 10 MB. Titles are Portuguese with no CPV: English searches match through the `pt` terms in `data/cpv-map.json` |
 | TenderNed | working | First test: 97 open national notices (of 2,900 contract notices in 120 days, most of them European and so already on TED). Contract notices (AAO) from the last `TENDERNED_LOOKBACK_DAYS` (default 120), national only. List rows have no CPV, so each new notice gets one detail call within `TENDERNED_DETAIL_BUDGET_MS` (default 5 min); codes are carried over between runs |
 | BZP | working | Verified 2026-10-01: 5,146 open notices after a 35-day backfill over two runs; a warm run took 29 requests and 2 minutes. ContractNotice rows, read one day at a time with a time cursor: `PageNumber` is ignored, but rows come oldest first and `PublicationDateFrom` honours the time of day, so each request starts at the previous page's last publication time (`BZP_PAGE_SIZE`, default 250). Every row has CPV codes but also the whole notice as HTML (~28 KB, ~10 MB a day), so runs are incremental: today and yesterday are re-read, plus any unread day in the last `BZP_LOOKBACK_DAYS` (default 35), within `BZP_BUDGET_MS` (default 8 min). The API sometimes answers HTTP 403 and accepts the same request after a pause, so requests are 3 s apart and a refusal waits 15 s, then 45 s |
+| OEV | working | Daily eForms zip from `api/notice-exports?pubDay=...&format=eforms.zip` (~4 MB, ~1,100 notices a day on 2026-09-30, ~350 calls for competition). Only notices under national rules (`de-uvgo`, `de-vob`, ...) are kept, about 35 a day; EU-directive notices are on TED (`OEV_INCLUDE_EU=1` keeps them). Keyed by contract folder and applied oldest first, so a result notice removes the call. Today, yesterday and any unread day in `OEV_LOOKBACK_DAYS` (default 45) are read each run |
 
 ### Settling the CanadaBuys 403 (temporary probe)
 
