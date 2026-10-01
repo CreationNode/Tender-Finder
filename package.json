@@ -2,6 +2,7 @@
   "name": "tender-finder",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "description": "Find open public tenders by describing what you supply, in plain language.",
   "type": "module",
   "engines": {
