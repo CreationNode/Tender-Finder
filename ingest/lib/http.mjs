@@ -34,12 +34,18 @@ export function ingestHeaders(extra = {}) {
  * also refused, the block is not about headers, and the caller reports the status rather than
  * escalating further.
  */
-export async function politeFetch(url, { headers = {}, timeoutMs = 60000, retries = 1 } = {}) {
+export async function politeFetch(url, { headers = {}, timeoutMs = 60000, bodyTimeoutMs = 15 * 60000, retries = 1 } = {}) {
   let sawForbidden = false;
 
   for (let attempt = 0; ; attempt++) {
     const controller = new AbortController();
+    // timeoutMs covers the response headers. The caller reads the body afterwards, so a second,
+    // longer deadline stays armed after we return: a server that stalls mid-body (a 500 MB CSV that
+    // stops arriving) is aborted instead of hanging the run. unref() so it never keeps Node alive.
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const bodyTimer = setTimeout(() => controller.abort(), bodyTimeoutMs);
+    bodyTimer.unref?.();
+    let handedOver = false;
     try {
       const extra = sawForbidden
         ? {
@@ -51,18 +57,18 @@ export async function politeFetch(url, { headers = {}, timeoutMs = 60000, retrie
 
       if (res.status === 403 && !sawForbidden) {
         sawForbidden = true;
-        clearTimeout(timer);
         await new Promise((r) => setTimeout(r, 500));
         continue;
       }
       if ((res.status === 429 || res.status >= 500) && attempt < retries) {
-        clearTimeout(timer);
         await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
         continue;
       }
+      handedOver = true;
       return res;
     } finally {
       clearTimeout(timer);
+      if (!handedOver) clearTimeout(bodyTimer);
     }
   }
 }

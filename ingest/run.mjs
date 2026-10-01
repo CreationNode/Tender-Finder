@@ -37,6 +37,28 @@ function readJson(file, fallback = null) {
   try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return fallback; }
 }
 
+// Write to a temporary file, then rename: a job killed mid-write must never leave a truncated JSON
+// that the next run reads as "no previous index" and rebuilds from scratch.
+function writeAtomic(file, text) {
+  fs.writeFileSync(file + ".tmp", text);
+  fs.renameSync(file + ".tmp", file);
+}
+
+// The whole run gets one deadline, so the last sources are skipped cleanly (and reported as
+// skipped) instead of being killed mid-write by the job timeout. One source also never gets more
+// than SOURCE_LIMIT, so a stalled download costs that source's update, not everyone's.
+const RUN_LIMIT_MS = Number(process.env.INGEST_RUN_MINUTES || 48) * 60000;
+const SOURCE_LIMIT_MS = Number(process.env.INGEST_SOURCE_MINUTES || 20) * 60000;
+const MIN_START_MS = 2 * 60000;
+
+function withDeadline(promise, ms, key) {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${key} did not finish within ${Math.round(ms / 60000)} min; previous index kept`)), ms);
+  });
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+}
+
 async function main() {
   const only = process.argv[2];
   const force = process.env.FORCE === "1";
@@ -45,12 +67,17 @@ async function main() {
   const manifestPath = path.join(OUT_DIR, "manifest.json");
   const manifest = readJson(manifestPath, { sources: {} });
   const failures = [];
+  const startedAt = Date.now();
+  // Every source this run touches is stamped with the run's start time, so the job's verdict can tell
+  // "ran and succeeded today" from "yesterday's clean entry, restored but never re-run".
+  manifest.runStartedAt = new Date(startedAt).toISOString();
+  manifest.runId = process.env.GITHUB_RUN_ID || "local";
 
   // Saved after EVERY source, not just at the end: when a slow source runs the job out of time, the
   // sources that already finished must still be recorded (the first Brazil/Spain run lost them all).
   const saveManifest = () => {
     manifest.generatedAt = new Date().toISOString();
-    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+    writeAtomic(manifestPath, JSON.stringify(manifest, null, 2));
   };
 
   for (const [key, mod] of Object.entries(INGESTERS)) {
@@ -59,20 +86,32 @@ async function main() {
     const outPath = path.join(OUT_DIR, `${key}.json`);
     const statePath = path.join(OUT_DIR, `${key}.state.json`);
     const previous = readJson(outPath);
+    // A manifest that remembers rows for a source whose index file is missing or unreadable means the
+    // restore went wrong for that file: compare against the remembered count, not against zero.
+    const previousCount = previous?.count || manifest.sources[key]?.count || 0;
+
+    const remaining = RUN_LIMIT_MS - (Date.now() - startedAt);
+    if (remaining < MIN_START_MS) {
+      const reason = `skipped: the run reached its ${RUN_LIMIT_MS / 60000}-minute limit before this source started`;
+      failures.push(`${key}: ${reason}`);
+      console.error(`SKIP ${key}: ${reason}`);
+      manifest.sources[key] = { ...(manifest.sources[key] || {}), lastAttempt: new Date().toISOString(), lastError: reason };
+      continue;
+    }
     // Incremental sources (feed crawlers) resume from a saved cursor and merge into the previous
     // rows, instead of rebuilding the whole index from a bulk file each run.
     const previousState = readJson(statePath, {});
 
     try {
-      const { rows, notes, state } = await mod.ingest({
+      const { rows, notes, state } = await withDeadline(mod.ingest({
         log: (m) => console.log(m),
         previousRows: previous?.rows || [],
         previousState,
-      });
+      }), Math.min(remaining - 60000, SOURCE_LIMIT_MS), key);
 
       // Canary: refuse to replace a healthy index with a collapsed one. A source that quietly
       // stops publishing must fail loudly, not silently empty the site.
-      const verdict = canaryVerdict(previous?.count || 0, rows.length);
+      const verdict = canaryVerdict(previousCount, rows.length);
       if (!verdict.ok && !force) {
         failures.push(`${key}: ${verdict.reason}`);
         console.error(`FAIL ${key}: ${verdict.reason}`);
@@ -85,8 +124,8 @@ async function main() {
       }
 
       const index = buildIndex({ source: mod.source, label: mod.label, rows, notes });
-      fs.writeFileSync(outPath, JSON.stringify(index));
-      if (state) fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
+      writeAtomic(outPath, JSON.stringify(index));
+      if (state) writeAtomic(statePath, JSON.stringify(state, null, 2));
       const kb = (fs.statSync(outPath).size / 1024).toFixed(0);
 
       manifest.sources[key] = {
@@ -126,6 +165,8 @@ async function main() {
     process.exit(1);   // surfaces as a red run in GitHub Actions
   }
   console.log("\nIngestion complete.");
+  // An abandoned source (see withDeadline) may still hold open sockets; nothing left to wait for.
+  process.exit(0);
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });

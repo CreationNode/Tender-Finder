@@ -394,5 +394,8 @@ https://simap.ted.europa.eu/cpv
 
 ## Licence
 
-Released for public benefit. Data comes from TED, © European Union, reused under the Commission's
-reuse policy. Do check the current TED reuse terms before deploying commercially.
+The code is released under the MIT licence (see `LICENSE`). The licence covers this repository's
+code and dictionary only, not the tender data: each notice belongs to the portal that published it and
+is reused under that portal's own terms (for example TED, © European Union, under the Commission's
+reuse policy; BOAMP under the Licence Ouverte). The per-source licences are listed in the table under
+"Sources". Check each portal's current reuse terms before deploying commercially.
