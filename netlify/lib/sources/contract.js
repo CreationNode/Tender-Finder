@@ -76,30 +76,37 @@ export function normaliseText(value) {
  * Cross-source de-duplication. A French above-threshold contract is published on BOTH TED and
  * BOAMP, so without this the same tender appears twice with different wording.
  *
- * Deliberately conservative — a false merge HIDES a real tender, which is worse than showing one
- * twice. Two notices are one tender when they share the country and the deadline date and either
- *   * their titles share most of their words, or
- *   * they come from DIFFERENT sources and name the same buyer. TED shows an English translation
- *     while national portals show the original (Doffin: "Vintervedlikehold Region Vest" vs TED:
- *     "Winter maintenance Region West"), so titles alone missed 346 of 369 Norwegian pairs
- *     (measured 2026-10-01). The buyer match only counts when that buyer has exactly one notice
- *     with that deadline on each side, so a buyer closing two tenders on one day is never merged,
- *     and, when both carry CPV codes, they must share a CPV group.
- * Repeated versions of one TED procedure (a notice and its corrections) collapse to the latest.
+ * Deliberately conservative: a false merge HIDES a real tender, which is worse than showing one
+ * twice. So:
+ *   * Notices from the SAME source are never merged on looks. One portal lists one notice once;
+ *     two of its notices with similar titles are two tenders ("Supply of Gas" and "Supply of
+ *     Electricity" from one school trust; lot 3 and lot 4). Only versions of one procedure collapse,
+ *     keeping the one with a deadline, then the most recently published.
+ *   * Two sources' notices are one tender when they share the country and the deadline date, and
+ *       - their titles share most of their words AND the same numbers (lot, reference, year), or
+ *       - they name the same buyer, that buyer has exactly one such notice on each side, and either
+ *         both carry CPV codes from a shared group, or (when one side has no codes, as BOAMP rows
+ *         usually don't) their titles share at least one distinctive word or number.
+ *     TED shows an English translation while national portals show the original (Doffin:
+ *     "Vintervedlikehold Region Vest" vs TED: "Winter maintenance Region West"), so titles alone
+ *     missed 346 of 369 Norwegian pairs (measured 2026-10-01); the buyer rule catches those.
  */
 export function dedupe(notices) {
-  const tokens = (s) =>
-    new Set(
-      String(s || "")
-        .toLowerCase()
-        .split(/[^\p{L}\p{N}]+/u)
-        .filter((w) => w.length > 3)
-    );
+  const words = (s) => String(s || "").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  const tokens = (s) => new Set(words(s).filter((w) => w.length > 3 && !/^\d+$/.test(w)));
+  const numbers = (s) => new Set(words(s).filter((w) => /\d/.test(w)));
   const overlap = (a, b) => {
     if (!a.size || !b.size) return 0;
     let hits = 0;
     for (const t of a) if (b.has(t)) hits++;
-    return hits / Math.min(a.size, b.size);
+    // Against the LONGER title: "Supply of Gas" is not mostly "Supply of Electricity".
+    return hits / Math.max(a.size, b.size);
+  };
+  const sameNumbers = (a, b) => {
+    const na = numbers(a), nb = numbers(b);
+    if (na.size !== nb.size) return false;
+    for (const x of na) if (!nb.has(x)) return false;
+    return true;
   };
   // Words that say what kind of body a buyer is, not which one: "Asker kommune" and "Narvik kommune"
   // share only "kommune", which must not count as the same buyer.
@@ -107,53 +114,57 @@ export function dedupe(notices) {
     "département region regione gemeente gmina powiat miasto ayuntamiento stadt landkreis gemeinde").split(" "));
   const sameBuyer = (a, b) => {
     const ta = tokens(a), tb = tokens(b);
-    if (overlap(ta, tb) < 0.6) return false;
-    for (const t of ta) if (tb.has(t) && !GENERIC.has(t)) return true;
-    return false;
+    let shared = 0, distinctive = false;
+    for (const t of ta) if (tb.has(t)) { shared++; if (!GENERIC.has(t)) distinctive = true; }
+    return distinctive && shared / Math.min(ta.size, tb.size) >= 0.6;
   };
 
-  // CPV groups (first three digits). When both notices carry codes they must share one, so a buyer's
-  // furniture tender is never taken for its cleaning tender.
+  // CPV groups (first three digits).
   const groups = (cpv) => new Set((String(cpv || "").match(/\b\d{8}\b/g) || []).map((c) => c.slice(0, 3)));
-  const sameGroup = (a, b) => {
+  const corroborated = (a, b) => {
     const ga = groups(a.cpv), gb = groups(b.cpv);
-    if (!ga.size || !gb.size) return true;
-    for (const g of ga) if (gb.has(g)) return true;
+    if (ga.size && gb.size) {
+      for (const g of ga) if (gb.has(g)) return true;
+      return false;
+    }
+    // No codes on one side: the titles must share something specific (a name, a reference, a number).
+    const ta = new Set([...tokens(a.title), ...numbers(a.title)]);
+    for (const t of [...tokens(b.title), ...numbers(b.title)]) if (ta.has(t) && !GENERIC.has(t)) return true;
     return false;
   };
 
-  // Repeated versions of one procedure from the same source (a notice and its corrections, which
-  // can move the deadline): keep only the most recently published.
+  // Versions of one procedure from the same source (a notice and its corrections, which can move
+  // the deadline): keep the one that has a deadline, then the most recently published. A later
+  // change notice without a deadline must not replace the open call it amends.
+  const better = (n, cur) => {
+    if (!!n.deadline !== !!cur.deadline) return !!n.deadline;
+    return String(n.published || "") > String(cur.published || "");
+  };
   const latest = new Map();
   for (const n of notices) {
     if (!n.procedure) continue;
     const key = `${n.source}|${n.procedure}`;
     const cur = latest.get(key);
-    if (!cur || String(n.published || "") > String(cur.published || "")) latest.set(key, n);
+    if (!cur || better(n, cur)) latest.set(key, n);
   }
   const list = notices.filter((n) => !n.procedure || latest.get(`${n.source}|${n.procedure}`) === n);
+
   const sameSlot = (a, b) =>
     a.country === b.country && a.deadline && a.deadline === b.deadline &&
-    a.buyer && b.buyer && sameBuyer(a.buyer, b.buyer) && sameGroup(a, b);
+    a.buyer && b.buyer && sameBuyer(a.buyer, b.buyer) && corroborated(a, b);
   // A buyer match only counts when it is unambiguous: exactly one notice on each side.
   const unique = (a, b) =>
     list.filter((m) => m.source === b.source && sameSlot(a, m)).length === 1 &&
     list.filter((m) => m.source === a.source && sameSlot(b, m)).length === 1;
+  const sameTitle = (a, b) =>
+    a.country === b.country && a.deadline && a.deadline === b.deadline &&
+    overlap(tokens(a.title), tokens(b.title)) >= 0.7 && sameNumbers(a.title, b.title);
 
   const kept = [];
   for (const n of list) {
-    const nTok = tokens(n.title);
-    let dup = kept.find(
-      (k) =>
-        k.country === n.country &&
-        k.deadline && n.deadline && k.deadline === n.deadline &&
-        overlap(tokens(k.title), nTok) >= 0.7
-    );
-    if (!dup) {
-      dup = kept.find(
-        (k) => k.source !== n.source && !(k.alsoOn || []).includes(n.source) && sameSlot(k, n) && unique(k, n)
-      );
-    }
+    const other = (k) => k.source !== n.source && !(k.alsoOn || []).includes(n.source);
+    const dup = kept.find((k) => other(k) && sameTitle(k, n)) ||
+      kept.find((k) => other(k) && sameSlot(k, n) && unique(k, n));
     if (dup) {
       // Keep the richer record, but remember that both portals carried it.
       dup.alsoOn = [...new Set([...(dup.alsoOn || []), n.source])];

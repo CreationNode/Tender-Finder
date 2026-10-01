@@ -378,8 +378,10 @@ Open `data/cpv-map.json` and add an entry. No code changes needed:
 { "label": "Beekeeping equipment", "cpv": ["03142100"], "terms": ["beehive", "beekeeping", "honey equipment"] }
 ```
 
-`terms` are the everyday words people actually use; matching is substring-based, so "hives for bees"
-will hit "beehive"-style terms if you list the right stems. Find CPV codes at
+`terms` are the everyday words people actually use. Matching is on whole words (a plural "s" or
+"es" is allowed), so list each form people type: "beehive" does not match "hives". Whole words keep
+short terms safe: "car" no longer fires on "healthcare". When two entries match overlapping words,
+only the longer match counts. Find CPV codes at
 https://simap.ted.europa.eu/cpv
 
 ## Honest limitations
