@@ -23,7 +23,7 @@ export const label = "Prozorro (Ukraine)";
 const API = process.env.PROZORRO_API || "https://public.api.openprocurement.org/api/2.5/tenders";
 // `items` carries each lot's ДК 021 classification, which IS CPV 2008. Titles are Ukrainian, so
 // without these codes the index was unreachable to anyone searching in English.
-const OPT_FIELDS = "status,title,title_en,tenderID,value,tenderPeriod,procuringEntity,items";
+const OPT_FIELDS = "status,title,title_en,tenderID,value,tenderPeriod,procuringEntity,items,date,dateCreated";
 
 // Statuses that mean "you can still bid". Everything else (complete, cancelled, unsuccessful,
 // awarded) is history, not opportunity.
@@ -57,7 +57,15 @@ function cpvCodes(t) {
   return [...new Set(out)].slice(0, 6);
 }
 
-function toNoticeRow(t) {
+// tenderPeriod.startDate is when bidding OPENS, which for tenders still in their enquiry period is days
+// in the future; using it as the publication date showed tenders "published" next week. Use the
+// record's own date, never later than today.
+function publishedDate(t, today) {
+  const d = isoDate(t.date) || isoDate(t.dateCreated) || isoDate(t.tenderPeriod?.startDate) || isoDate(t.dateModified);
+  return d && d > today ? today : d;
+}
+
+function toNoticeRow(t, today = new Date().toISOString().slice(0, 10)) {
   const deadline = isoDate(t.tenderPeriod?.endDate);
   const title = String(t.title_en || t.title || "").trim();
   const buyer = String(t.procuringEntity?.name_en || t.procuringEntity?.name || "").trim();
@@ -73,7 +81,7 @@ function toNoticeRow(t) {
     buyer,
     country: "UKR",
     deadline,
-    published: isoDate(t.tenderPeriod?.startDate) || isoDate(t.dateModified),
+    published: publishedDate(t, today),
     codes: [
       ...cpvCodes(t).map((c) => `CPV ${c}`),
       amount ? `${Math.round(amount)} ${currency}` : "",
@@ -116,7 +124,10 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
   for (const row of previousRows) byId.set(row[0], row);   // row[0] is the id column
 
   let pages = 0, seen = 0, kept = 0, closedOrDone = 0, missingTitles = 0;
-  const pendingIds = [];   // ids seen without inline fields, for the detail-fetch fallback
+  // Internal ids of tenders the feed listed without a title, waiting for a detail fetch. Carried
+  // between runs: the old code kept them only in memory, so whatever the per-run cap didn't reach
+  // was never fetched, and those tenders stayed in the index as blank rows (89% of it on 2026-10-01).
+  const pending = new Set(Array.isArray(previousState.pendingIds) ? previousState.pendingIds : []);
   let lastOffset = previousState.ascOffset || "";
   const notes = [];
 
@@ -141,14 +152,27 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
 
     for (const t of items) {
       seen++;
-      if (!t.title && !t.title_en) { missingTitles++; if (t.id) pendingIds.push(t.id); }
       const status = String(t.status || "");
       const deadline = isoDate(t.tenderPeriod?.endDate);
       const open = OPEN_STATUSES.has(status) && (!deadline || deadline >= today);
-      const row = toNoticeRow(t);
+      const row = toNoticeRow(t, today);
+      if (status && !open) {
+        // Closed, cancelled or awarded: remove it whether or not the feed sent a title.
+        if (row[0]) byId.delete(row[0]);
+        if (t.id) pending.delete(t.id);
+        closedOrDone++;
+        continue;
+      }
+      if (!t.title && !t.title_en) {
+        // Open (or unknown) but untitled: never write a blank row, and never let one replace a row
+        // that already has a title. Fetch the full record instead.
+        missingTitles++;
+        if (t.id) pending.add(t.id);
+        continue;
+      }
       if (!row[0]) continue;
-      if (open) { byId.set(row[0], row); kept++; }
-      else { byId.delete(row[0]); closedOrDone++; }   // a tender that closed since last run is removed
+      byId.set(row[0], row); kept++;
+      if (t.id) pending.delete(t.id);
     }
 
     pages++;
@@ -158,47 +182,55 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
     url = nextUri || `${API}?offset=${encodeURIComponent(body.next_page.offset)}&limit=${pageSize}&opt_fields=${OPT_FIELDS}`;
   }
 
-  // VERIFIED LIVE (2026-08): the public feed does NOT honour opt_fields — it returns {id, dateModified}
-  // only. Rather than abort, fall back to fetching each tender individually. That is one request per
-  // tender, so it is bounded per run and the index builds up across runs; the saved cursor means no
-  // work is repeated. Slower to warm up, but correct — and it needs no cooperation from the API.
-  if (seen > 0 && missingTitles / seen > 0.5) {
-    const budgetLeft = () => Date.now() - startedAt < budgetMs;
-    const maxDetails = Number(process.env.PROZORRO_MAX_DETAILS || 400);
-    notes.push(`opt_fields not honoured; fetching details individually (cap ${maxDetails})`);
-    log(`Prozorro: feed returned ids only — fetching up to ${maxDetails} tender details individually`);
-
-    let fetched = 0, detailKept = 0, detailFail = 0;
-    for (const id of pendingIds) {
-      if (fetched >= maxDetails || !budgetLeft()) break;
+  // VERIFIED LIVE (2026-08, and again 2026-10-01): the public feed honours opt_fields for only some
+  // records and returns most as {id, dateModified}. Those go to `pending` and are fetched one by one
+  // here, newest first, up to a per-run cap; the rest wait for the next run instead of being lost.
+  const maxDetails = Number(process.env.PROZORRO_MAX_DETAILS || 600);
+  const detailBudgetMs = Number(process.env.PROZORRO_DETAIL_BUDGET_MS || 6 * 60 * 1000);
+  const detailStart = Date.now();
+  let fetched = 0, detailKept = 0, detailFail = 0, detailClosed = 0;
+  if (pending.size) {
+    log(`Prozorro: ${missingTitles} untitled record(s) this run, ${pending.size} awaiting detail; fetching up to ${maxDetails}`);
+    for (const pid of [...pending].reverse()) {
+      if (fetched >= maxDetails || Date.now() - detailStart > detailBudgetMs) break;
       fetched++;
       try {
-        const dres = await fetchImpl(`${API}/${encodeURIComponent(id)}`, { headers: { accept: "application/json" } });
+        const dres = await fetchImpl(`${API}/${encodeURIComponent(pid)}`, { headers: { accept: "application/json" } });
+        if (dres.status === 404) { pending.delete(pid); continue; }   // withdrawn or never public
+        if (dres.status === 429) { detailFail++; notes.push("rate limited during detail fetches; stopping politely"); break; }
         if (!dres.ok) { detailFail++; continue; }
         const t = (await dres.json())?.data;
         if (!t) { detailFail++; continue; }
-        const row = toNoticeRow(t);
+        pending.delete(pid);
+        const row = toNoticeRow(t, today);
         if (!row[0]) continue;
-        const status = String(t.status || "");
         const dl = isoDate(t.tenderPeriod?.endDate);
-        if (OPEN_STATUSES.has(status) && (!dl || dl >= today)) { byId.set(row[0], row); detailKept++; }
-        else byId.delete(row[0]);
+        if (OPEN_STATUSES.has(String(t.status || "")) && (!dl || dl >= today) && row[1]) { byId.set(row[0], row); detailKept++; }
+        else { byId.delete(row[0]); detailClosed++; }
       } catch {
         detailFail++;
       }
     }
-    log(`Prozorro: fetched ${fetched} detail(s) -> ${detailKept} open kept, ${detailFail} failed`);
-    notes.push(`details ${fetched}`, `detail-kept ${detailKept}`, `detail-failed ${detailFail}`);
-    if (fetched > 0 && detailKept === 0 && detailFail === fetched) {
+    log(`Prozorro: fetched ${fetched} detail(s) -> ${detailKept} open kept, ${detailClosed} closed, ${detailFail} failed; ${pending.size} still pending`);
+    notes.push(`untitled in feed ${missingTitles}`, `details ${fetched}`, `detail-kept ${detailKept}`, `detail-failed ${detailFail}`, `pending ${pending.size}`);
+    if (fetched > 0 && detailFail === fetched) {
       throw new Error(`Prozorro: every detail fetch failed (${detailFail}/${fetched}). Check PROZORRO_API.`);
     }
   }
+
+  // Blank rows written by earlier versions can't be repaired (their internal ids weren't kept). They
+  // are still real open tenders with working links, so they stay until their deadline passes or the
+  // feed lists them again with a title; dropping them all at once would also trip the canary.
+  let blank = 0;
+  for (const row of byId.values()) if (!row[1]) blank++;
+  if (blank) notes.push(`untitled rows left from earlier runs ${blank}`);
 
   // Drop anything whose deadline has passed since the last run, even if we did not revisit it.
   let expired = 0;
   for (const [id, row] of byId) {
     const dl = row[4];
-    if (dl && dl < today) { byId.delete(id); expired++; }
+    if (dl && dl < today) { byId.delete(id); expired++; continue; }
+    if (row[5] > today) row[5] = today;   // rows from before publishedDate() carried bidding-start dates
   }
 
   const rows = [...byId.values()];
@@ -214,6 +246,8 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
   return {
     rows,
     notes,
-    state: { ascOffset, seededAt: previousState.seededAt || new Date(startedAt).toISOString(), updatedAt: new Date().toISOString() },
+    // Cap the queue so a feed that stops sending titles altogether can't grow state without bound;
+    // the oldest entries go first (they are the likeliest to have closed).
+    state: { ascOffset, pendingIds: [...pending].slice(-Number(process.env.PROZORRO_MAX_PENDING || 5000)), seededAt: previousState.seededAt || new Date(startedAt).toISOString(), updatedAt: new Date().toISOString() },
   };
 }

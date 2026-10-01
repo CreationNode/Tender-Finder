@@ -84,12 +84,17 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
   // Folders whose newest state has already been applied. While a backfill is running it persists
   // across runs: otherwise an older "open" entry met during backfill would resurrect a folder that a
   // previous run already saw awarded or cancelled.
-  const decided = new Set(previousState.backfillNext ? previousState.seen || [] : []);
+  //
+  // Two sets, because the head walk reads entries NEWER than anything earlier runs saw: there only
+  // this run's decisions count (the old single set made a folder seen "open" during backfill ignore
+  // its later award). The gap and backfill walks read OLDER entries, so both sets block them.
+  const decidedBefore = new Set(previousState.backfillNext || previousState.gapNext ? previousState.seen || [] : []);
+  const decided = new Set();
   let pages = 0, entries = 0, kept = 0, removed = 0, newestSeen = "";
   const notes = [];
 
   // Walks rel="next" links from `url`, stopping at `stopAt` (an ISO timestamp) or the page budget.
-  async function walk(url, stopAt) {
+  async function walk(url, stopAt, older = false) {
     while (url && pages < maxPages) {
       if (Date.now() - startedAt > budgetMs) { notes.push(`time budget reached after ${pages} page(s)`); return url; }
       let res;
@@ -110,7 +115,7 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
       if (pages % 5 === 0) log(`PLACSP: ${pages} page(s), ${entries} entries, ${Math.round((Date.now() - startedAt) / 1000)} s`);
       for (const m of xml.matchAll(/<at:deleted-entry[^>]*ref="([^"]+)"/g)) {
         const key = `ES-${entryId(m[1])}`;
-        if (!decided.has(key)) { decided.add(key); if (byId.delete(key)) removed++; }
+        if (!decided.has(key) && !(older && decidedBefore.has(key))) { decided.add(key); if (byId.delete(key)) removed++; }
       }
       let reachedStop = false;
       for (const m of xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)) {
@@ -120,7 +125,7 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
         if (!newestSeen || e.updated > newestSeen) newestSeen = e.updated;
         if (stopAt && e.updated && e.updated <= stopAt) { reachedStop = true; continue; }
         const key = e.row[0];
-        if (decided.has(key)) continue;
+        if (decided.has(key) || (older && decidedBefore.has(key))) continue;
         decided.add(key);
         const open = e.status === "PUB" && (!e.row[4] || e.row[4] >= today);
         if (open) { byId.set(key, e.row); kept++; }
@@ -135,12 +140,25 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
   // 1. Incremental: head back to where the last run started.
   const incrementalStop = previousState.headUpdated || backfillUntil;
   const leftover = await walk(HEAD, incrementalStop);
-  if (leftover && previousState.headUpdated) notes.push("page budget hit before reaching last run's head; older part of the gap is skipped");
 
-  // 2. Backfill (cold start only), resuming from a saved page.
+  // 2. Gap: when the head walk ran out of pages or time before reaching the last run's head, the
+  // entries in between used to be skipped for good. Remember where the walk stopped and what it
+  // was heading for, and finish that stretch on later runs. An older gap still open from a previous
+  // run is finished first; a new gap is only recorded when no gap is pending (both would need
+  // their own cursor, and a second gap in a row means the head walk needs a bigger budget).
+  let gapNext = previousState.gapNext || null, gapStop = previousState.gapStop || "";
+  if (gapNext && pages < maxPages) gapNext = await walk(gapNext, gapStop, true);
+  if (leftover && previousState.headUpdated) {
+    if (!gapNext) { gapNext = leftover; gapStop = previousState.headUpdated; notes.push("head walk stopped before last run's head; the gap is read on the next runs"); }
+    else notes.push("head walk stopped before last run's head while an older gap is still open; part of this run's gap is skipped");
+  }
+  if (gapNext) notes.push("gap still open");
+  else gapStop = "";
+
+  // 3. Backfill (cold start only), resuming from a saved page.
   let backfillNext = previousState.backfillNext === undefined ? leftover : previousState.backfillNext;
   if (!previousState.headUpdated) backfillNext = leftover;
-  if (backfillNext && pages < maxPages) backfillNext = await walk(backfillNext, backfillUntil);
+  if (backfillNext && pages < maxPages) backfillNext = await walk(backfillNext, backfillUntil, true);
   notes.push(backfillNext ? "backfill continuing" : "backfill complete");
 
   let expired = 0;
@@ -157,7 +175,9 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
       headUpdated: newestSeen || previousState.headUpdated || "",
       backfillNext: backfillNext || null,
       backfillUntil,
-      seen: backfillNext ? [...decided] : undefined,
+      gapNext: gapNext || null,
+      gapStop: gapStop || undefined,
+      seen: backfillNext || gapNext ? [...new Set([...decidedBefore, ...decided])] : undefined,
       updatedAt: new Date().toISOString(),
     },
   };

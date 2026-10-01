@@ -74,7 +74,10 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
         const res = await fetchImpl(url, { headers: { accept: "application/json" }, retries: 0, timeoutMs: 90000 });
         if (res.ok) {
           const list = JSON.parse(res.text || "[]");
-          return Array.isArray(list) ? list : [];
+          // Anything but a list (an error object, a maintenance page as JSON) used to read as "no
+          // notices", which marked the day as fully read and never came back to it.
+          if (Array.isArray(list)) return list;
+          throw new Error(`unexpected reply (not a list): ${String(res.text).slice(0, 80)}`);
         }
         lastError = Object.assign(new Error(`HTTP ${res.status}`), { retryAfter: res.retryAfter });
       } catch (err) { lastError = err; }

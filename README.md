@@ -66,7 +66,7 @@ ingested for it.
 | **CANADA** | Canada federal | none | daily open CSV -> index | Open Government Licence - Canada | cached |
 | **PROZORRO** | Ukraine | none | incremental feed crawl -> index | Open data (Prozorro) | cached |
 | **UK-FTS** | UK above-threshold | none | OCDS release packages -> index | OGL v3 | cached |
-| **UK-CF** | UK **below-threshold** | none | OCDS search (stages=planning,tender) -> index | OGL v3 | cached |
+| **UK-CF** | UK **below-threshold** | none | v2 search API, all open notices in one request -> index | OGL v3 | cached |
 | **AUSTENDER** | Australia federal | none | current-ATM RSS -> index | CC BY 3.0 AU (verify) | cached |
 | **PLACSP** | Spain, **incl. below-threshold** | none | open-data ATOM feed (CODICE) -> index | Spanish public-sector reuse (verify); robots.txt is a blanket `Disallow`, used under the open-data exception in HANDOFF.md | cached |
 | **PNCP** | Brazil, all levels of government | none | paged "open for proposals" API -> index | Brazilian public open data (verify) | cached |

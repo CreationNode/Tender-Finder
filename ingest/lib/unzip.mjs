@@ -4,6 +4,8 @@
 
 import zlib from "node:zlib";
 
+const MAX_ENTRY_BYTES = Number(process.env.UNZIP_MAX_ENTRY_MB || 512) * 1024 * 1024;
+
 export function unzip(buf) {
   let eocd = -1;
   for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) {
@@ -24,8 +26,11 @@ export function unzip(buf) {
     if (name.endsWith("/")) continue;
     const start = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28);
     const raw = buf.subarray(start, start + size);
-    const data = method === 0 ? raw : method === 8 ? zlib.inflateRawSync(raw) : null;
-    if (data) files.push({ name, data });
+    // An entry we can't decode is an error, not a missing file: silently skipping it made a day's
+    // export look empty. The output cap guards against a corrupt or hostile size.
+    if (method !== 0 && method !== 8) throw new Error(`zip entry ${name} uses unsupported compression method ${method}`);
+    const data = method === 0 ? raw : zlib.inflateRawSync(raw, { maxOutputLength: MAX_ENTRY_BYTES });
+    files.push({ name, data });
   }
   return files;
 }

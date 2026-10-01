@@ -4,82 +4,104 @@
 // Finder carries the smaller contracts (from £12k central government / £30k wider public sector)
 // that a small supplier can realistically win, and which never appear on TED or FTS.
 //
-// Endpoint verified from the official API documentation sample:
-//   /Published/Notices/OCDS/Search?publishedFrom=...&publishedTo=...&stages=planning,tender
+// Read from the v2 search API (POST /api/rest/2/search_notices/json) asking for every notice of type
+// Contract with status Open. One request returns all of them (512 notices, 1.7 MB on 2026-10-01), so
+// each run is a full snapshot and nothing can be missed between runs. The OCDS Search endpoint used
+// before returned about 20 releases per two-day window and no next-page link, so the index held 114
+// of the 512 open notices (both checked from a GitHub runner, 2026-10-01).
 // Licence: Open Government Licence v3. Auth: none.
 
-import { crawlOcds, releaseToRow, isOpportunity } from "../lib/ocds.mjs";
-import { politeFetch } from "../lib/http.mjs";
+import { ingestHeaders } from "../lib/http.mjs";
+import { toRow } from "../lib/index-format.mjs";
 
 export const source = "UK-CF";
 export const label = "Contracts Finder (UK, below threshold)";
 
-const API = process.env.CF_API || "https://www.contractsfinder.service.gov.uk/Published/Notices/OCDS/Search";
+const API = process.env.CF_API || "https://www.contractsfinder.service.gov.uk/api/rest/2/search_notices/json";
 const SITE = "https://www.contractsfinder.service.gov.uk";
+const SIZE = Number(process.env.CF_SIZE || 1000);
 
-// A notice page lives at /Notice/<notice GUID>. The release carries it as a tender document URL, and
-// the release id is that GUID plus a "-<number>" suffix; /notice/<ocid> is "Page not found" (checked
-// from a GitHub runner, 2026-10-01).
-export function noticeLink(rel) {
-  const doc = (rel?.tender?.documents || []).map((d) => String(d?.url || "")).find((u) => /^https:\/\/www\.contractsfinder\.service\.gov\.uk\/Notice\/[0-9a-f-]{36}$/i.test(u));
-  if (doc) return doc;
-  const guid = (/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(-\d+)?$/i.exec(String(rel?.id || "")) || [])[1];
+function isoDate(value) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ""));
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
+}
+
+// A notice page lives at /Notice/<notice GUID>; /notice/<ocid> is "Page not found" (checked from a
+// GitHub runner, 2026-10-01).
+export function noticeLink(item) {
+  const guid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(item?.id || "")) ? item.id : "";
   return guid ? `${SITE}/Notice/${guid}` : `${SITE}/Search`;
 }
 
-export async function ingest({ fetchImpl = politeFetch, log = console.log, previousRows = [], previousState = {} } = {}) {
-  const maxPages = Number(process.env.CF_MAX_PAGES || 25);
-  const budgetMs = Number(process.env.CF_BUDGET_MS || 5 * 60 * 1000);
-  const today = new Date().toISOString().slice(0, 10);
+export function itemToRow(item) {
+  const cpv = [...new Set(String(item.cpvCodes || "").split(/[\s,]+/).filter((c) => /^\d{8}$/.test(c)))].slice(0, 6);
+  const value = Number(item.valueHigh) || Number(item.valueLow) || 0;
+  return toRow({
+    // The GUID, not the OCID: the v2 API doesn't return OCIDs, so rows from the old crawler
+    // (UKCF-ocds-…) are simply replaced by this snapshot.
+    id: item.id ? `UKCF-${item.id}` : "",
+    title: String(item.title || "").trim(),
+    buyer: String(item.organisationName || "").trim(),
+    country: "GBR",
+    deadline: isoDate(item.deadlineDate),
+    published: isoDate(item.publishedDate),
+    codes: [...cpv.map((c) => `CPV ${c}`), value > 1 ? `${Math.round(value)} GBP` : ""].filter(Boolean).join(" · "),
+    link: noticeLink(item),
+  });
+}
 
-  const lookbackDays = previousState.publishedTo ? 2 : 45;
-  const since = previousState.publishedTo
-    ? new Date(new Date(previousState.publishedTo).getTime() - lookbackDays * 86400000)
-    : new Date(Date.now() - lookbackDays * 86400000);
-  const publishedFrom = since.toISOString().slice(0, 19);
-  const runAt = new Date().toISOString().slice(0, 19);
+async function post(fetchImpl, body, timeoutMs) {
+  const res = await fetchImpl(API, {
+    method: "POST",
+    headers: ingestHeaders({ "content-type": "application/json", accept: "application/json" }),
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`Contracts Finder returned HTTP ${res.status}: ${text.replace(/\s+/g, " ").slice(0, 160)}`);
+  let data;
+  try { data = JSON.parse(text); } catch { throw new Error(`Contracts Finder sent something other than JSON: ${text.slice(0, 120)}`); }
+  if (!Array.isArray(data.noticeList)) throw new Error(`Contracts Finder reply has no noticeList (keys: ${Object.keys(data).join(",")})`);
+  return data;
+}
+
+export async function ingest({ fetchImpl = fetch, log = console.log } = {}) {
+  const timeoutMs = Number(process.env.CF_TIMEOUT_MS || 120000);
+  const today = new Date().toISOString().slice(0, 10);
+  log("Contracts Finder: reading every open notice from the v2 search API");
+
+  let data;
+  for (let attempt = 1; ; attempt++) {
+    try { data = await post(fetchImpl, { searchCriteria: { types: ["Contract"], statuses: ["Open"] }, size: SIZE }, timeoutMs); break; }
+    catch (err) {
+      if (attempt >= 3) throw err;
+      log(`Contracts Finder: ${err.message} (attempt ${attempt}); retrying`);
+      await new Promise((r) => setTimeout(r, 10000 * attempt));
+    }
+  }
+
+  const notes = [];
+  const hitCount = Number(data.hitCount);
+  if (Number.isFinite(hitCount) && hitCount > data.noticeList.length) {
+    // Never silently partial: if Contracts Finder ever has more open notices than one reply holds,
+    // say so in the manifest so it can be paged.
+    notes.push(`only ${data.noticeList.length} of ${hitCount} open notices returned; raise CF_SIZE or add paging`);
+  }
 
   const byId = new Map();
-  for (const row of previousRows) {
-    // Rows saved before the link fix point at /notice/<ocid>, which does not exist. The OCID does not
-    // contain the notice GUID, so those go to the search page until they are re-read or close.
-    if (/\/notice\/ocds-/i.test(row[7] || "")) row[7] = `${SITE}/Search`;
+  let untitled = 0, closed = 0;
+  for (const n of data.noticeList) {
+    const item = n?.item || {};
+    if (String(item.noticeStatus || "Open") !== "Open") { closed++; continue; }
+    const row = itemToRow(item);
+    if (!row[0]) continue;
+    if (!row[1]) { untitled++; continue; }
+    if (row[4] && row[4] < today) { closed++; continue; }
     byId.set(row[0], row);
   }
 
-  let seen = 0, kept = 0, history = 0;
-  // stages=planning,tender asks the server for opportunities only — cheaper than filtering locally.
-  const startUrl = `${API}?publishedFrom=${encodeURIComponent(publishedFrom)}&publishedTo=${encodeURIComponent(runAt)}&stages=planning,tender`;
-  log(`Contracts Finder: crawling from ${publishedFrom}`);
-
-  const { pages, notes } = await crawlOcds({
-    startUrl, fetchImpl, maxPages, budgetMs, log,
-    onPage: (releases) => {
-      for (const r of releases) {
-        seen++;
-        const row = releaseToRow(r, {
-          country: "GBR",
-          idPrefix: "UKCF",
-          linkFor: noticeLink,
-        });
-        if (!row[0] || !row[1]) continue;
-        if (!isOpportunity(r)) { byId.delete(row[0]); history++; continue; }
-        byId.set(row[0], row);
-        kept++;
-      }
-    },
-  });
-
-  let expired = 0;
-  for (const [id, row] of byId) {
-    if (row[4] && row[4] < today) { byId.delete(id); expired++; }
-  }
-
   const rows = [...byId.values()];
-  log(`Contracts Finder: ${pages} page(s), ${seen} releases -> ${kept} opportunities, ${history} history skipped, ${expired} expired pruned; index ${rows.length}`);
-  return {
-    rows,
-    notes: [...notes, `pages ${pages}`, `releases ${seen}`, `opportunities ${kept}`],
-    state: { publishedTo: runAt, updatedAt: new Date().toISOString() },
-  };
+  log(`Contracts Finder: ${data.noticeList.length} notice(s) returned of ${hitCount}; ${rows.length} open kept, ${closed} closed, ${untitled} untitled`);
+  notes.push(`returned ${data.noticeList.length}`, `hit count ${hitCount}`, `kept ${rows.length}`);
+  return { rows, notes, state: { updatedAt: new Date().toISOString() } };
 }

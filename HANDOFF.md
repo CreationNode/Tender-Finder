@@ -201,7 +201,7 @@ Verified live from the owner's machine, Aug 2026, and deployed working on Netlif
 | BOAMP | live | FRA | ✅ | Text search on `objet`. |
 | SAM.gov | cached | USA | ✅ ~28k open of ~81k | Daily bulk CSV (~6.6 MB index). Needs `SAM_API_KEY`. |
 | UK Find a Tender | cached | GBR | ✅ ~570 | OCDS, `updatedFrom/updatedTo` cursor. |
-| UK Contracts Finder | cached | GBR | ✅ ~150 | OCDS, `publishedFrom/To`, `stages=planning,tender`. Below-threshold. |
+| UK Contracts Finder | cached | GBR | ✅ ~510 | v2 `search_notices` API, type Contract, status Open, one request per run (full snapshot). Below-threshold. |
 | Prozorro | cached | UKR | ✅ ~560, grows daily | Incremental feed + per-tender detail fetch. |
 | AusTender | cached | AUS | ⚠️ ~90 | RSS lacks deadline and buyer; see below. |
 | CanadaBuys | cached | CAN | ❌ HTTP 403 | Blocked from owner's residential IP on every URL; untested from CI. |
@@ -223,9 +223,14 @@ fetched (`PROZORRO_MAX_DETAILS`, default 400/run). Cold start seeds with `descen
 `active.tendering`, `active.enquiries`, `active.auction`. IDs get `UA-` prefix only if missing (there
 was a `UA-UA-` bug). Titles are Ukrainian — see the language-layer roadmap item.
 
-**UK (`uk-fts.mjs`, `uk-cf.mjs`)** — 45-day cold lookback, 2-day overlap on subsequent runs. Pagination
+**UK Find a Tender (`uk-fts.mjs`)** — 45-day cold lookback, 2-day overlap on subsequent runs. Pagination
 was once stuck at one page; `findNextLink` now checks `links.next`, `links.nextPage`, `next_page.uri`,
-`nextPage`, `pagination.next` and emits a diagnostic when none are found.
+`nextPage`, `pagination.next` and emits a diagnostic when none are found. When the page or time budget
+cuts a crawl short, the cursor stays at the newest release read instead of jumping to the run time.
+
+**UK Contracts Finder (`uk-cf.mjs`)** — since 2026-10-01 a full snapshot from the v2 search API (one POST
+for every open Contract notice). The OCDS Search endpoint it used before returned about 20 releases per
+two-day window with no next-page link, so the index held 114 of 512 open notices.
 
 **AusTender (`austender.mjs`)** — feed discovered via data.gov.au CKAN →
 `https://www.tenders.gov.au/public_data/rss/rss.xml`. Needed the conventional crawler UA (403
