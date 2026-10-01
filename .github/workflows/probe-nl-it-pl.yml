@@ -5,23 +5,17 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
+      - uses: actions/checkout@v4
+        with: { ref: netherlands-poland }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
       - run: |
-          UA="Mozilla/5.0 (compatible; OpenTenderFinder/1.0; public-interest tender search; +https://github.com/tender-finder)"
-          A="https://ezamowienia.gov.pl/mo-board/api/v1/notice?NoticeType=ContractNotice&PageSize=100"
-          D="PublicationDateFrom=2026-09-29T00:00:00&PublicationDateTo=2026-09-29T23:59:59"
-          s() { jq -c '{n: length, first: .[0].publicationDate, last: .[-1].publicationDate, firstNo: .[0].noticeNumber, lastNo: .[-1].noticeNumber, lastObj: .[-1].objectId}' /tmp/r.json 2>/dev/null || head -c 300 /tmp/r.json; echo; sleep 3; }
-          get() { echo "== $1"; curl -sS --max-time 90 -A "$UA" "$A&$1" -o /tmp/r.json -w "HTTP %{http_code} bytes=%{size_download}\n"; s; }
-          get "$D"; cp /tmp/r.json /tmp/first.json
-          OBJ=$(jq -r '.[-1].objectId' /tmp/first.json); NO=$(jq -r '.[-1].bzpNumber' /tmp/first.json | sed 's/ /%20/g'); NN=$(jq -r '.[-1].noticeNumber' /tmp/first.json | sed 's/ /%20/g; s#/#%2F#g'); PD=$(jq -r '.[-1].publicationDate' /tmp/first.json)
-          get "$D&SearchAfter=$OBJ"
-          get "$D&SearchAfter=$NO"
-          get "$D&SearchAfter=$NN"
-          get "$D&SearchAfter=$PD"
-          # does time of day filter?
-          get "PublicationDateFrom=2026-09-29T08:47:35&PublicationDateTo=2026-09-29T23:59:59"
-          get "PublicationDateFrom=2026-09-29T12:00:00Z&PublicationDateTo=2026-09-29T23:59:59Z"
-          # totals for the day with larger pages
-          get "$D&PageSize=1000" 
-          jq 'length' /tmp/r.json
+          time node ingest/run.mjs bzp || true
+          jq -c '.doneDays' data/index/bzp.state.json
+          time node ingest/run.mjs bzp || true
+          jq -c '.doneDays' data/index/bzp.state.json
+          jq -c '{count, notes}' data/index/bzp.json
+          jq -c '[.rows[] | .[5]] | group_by(.) | map({(.[0]): length}) | add' data/index/bzp.json
+          jq -c '[.rows[] | .[4]] | group_by(.) | map({(.[0]): length}) | add' data/index/bzp.json
