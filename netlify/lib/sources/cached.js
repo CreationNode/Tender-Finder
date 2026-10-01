@@ -11,7 +11,7 @@
 //     the UI shows it. A cached source that silently stops refreshing is the failure mode here, so
 //     staleness is surfaced, never hidden.
 
-import { daysUntil } from "./contract.js";
+import { daysUntil, todayUTC } from "./contract.js";
 
 const COL = { id: 0, title: 1, buyer: 2, country: 3, deadline: 4, published: 5, codes: 6, link: 7 };
 
@@ -33,15 +33,47 @@ const memo = new Map();
  */
 const INDEX_BASE = (process.env.INDEX_BASE_URL || "").replace(/\/+$/, "");
 
+const FRESH_MS = 10 * 60 * 1000;       // re-check the published index after this long
+const MISSING_MS = 10 * 60 * 1000;     // remember a 404 this long, instead of re-asking every search
+const LOAD_TIMEOUT_MS = Number(process.env.INDEX_TIMEOUT_MS || 6000);
+const inflight = new Map();
+
+class IndexMissing extends Error {}
+
+/**
+ * Load an index, preferring a working answer over a fresh one:
+ *   * a copy younger than FRESH_MS is used as is;
+ *   * when a refresh fails (timeout, network, 5xx), the older copy is served and flagged, instead
+ *     of the source dropping to "0 found" until the host recovers;
+ *   * a 404 is remembered, so a not-yet-built index does not cost a request on every search;
+ *   * concurrent requests for the same index share one download.
+ * Returns { data, refreshFailed } or throws IndexMissing / Error.
+ */
 async function loadIndex(origin, name) {
   const cached = memo.get(name);
-  if (cached && Date.now() - cached.at < 10 * 60 * 1000) return cached.data;
-  const base = INDEX_BASE || `${origin}/data/index`;
-  const res = await fetch(`${base}/${name}.json`, { headers: { accept: "application/json" } });
-  if (!res.ok) throw new Error(`index ${name}.json not available from ${base} (HTTP ${res.status})`);
-  const data = await res.json();
-  memo.set(name, { at: Date.now(), data });
-  return data;
+  if (cached?.missing && Date.now() - cached.at < MISSING_MS) throw new IndexMissing(cached.missing);
+  if (cached?.data && Date.now() - cached.at < FRESH_MS) return { data: cached.data, refreshFailed: false };
+  if (!inflight.has(name)) {
+    inflight.set(name, (async () => {
+      const base = INDEX_BASE || `${origin}/data/index`;
+      const res = await fetch(`${base}/${name}.json`, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(LOAD_TIMEOUT_MS) });
+      if (res.status === 404) {
+        const msg = `index ${name}.json not built yet`;
+        memo.set(name, { at: Date.now(), missing: msg });
+        throw new IndexMissing(msg);
+      }
+      if (!res.ok) throw new Error(`index ${name}.json: HTTP ${res.status}`);
+      const data = await res.json();
+      memo.set(name, { at: Date.now(), data });
+      return data;
+    })().finally(() => inflight.delete(name)));
+  }
+  try {
+    return { data: await inflight.get(name), refreshFailed: false };
+  } catch (err) {
+    if (cached?.data && !(err instanceof IndexMissing)) return { data: cached.data, refreshFailed: err.name === "TimeoutError" ? "timed out" : err.message };
+    throw err;
+  }
 }
 
 // Words too common to count as evidence on their own.
@@ -137,33 +169,45 @@ export function makeCachedSource({ id, label, countries, indexName, codeMatcher,
     async search(params) {
       const diagnostics = [];
       const origin = params.origin;
-      if (!origin) return { notices: [], variant: null, diagnostics: ["no origin available to load the index"] };
+      if (!origin) return { notices: [], variant: null, status: "error", diagnostics: ["no origin available to load the index"] };
 
-      let index;
+      let index, refreshFailed;
       try {
-        index = await loadIndex(origin, indexName);
+        ({ data: index, refreshFailed } = await loadIndex(origin, indexName));
       } catch (err) {
-        return { notices: [], variant: null, diagnostics: [`${err.message} — has the ingestion job run yet?`] };
+        if (err instanceof IndexMissing) return { notices: [], variant: null, status: "missing", diagnostics: [err.message] };
+        const why = err.name === "TimeoutError" ? `index ${indexName}.json timed out` : err.message;
+        return { notices: [], variant: null, status: "error", diagnostics: [why] };
       }
+      if (refreshFailed) diagnostics.push(`could not refresh the index (${refreshFailed}); using the copy loaded earlier`);
 
       const ageHours = index.generatedAt
         ? Math.round((Date.now() - new Date(index.generatedAt)) / 3600000)
         : null;
+      const stale = ageHours !== null && ageHours > 48;
 
       const phrases = buildPhrases(params, localTerms);
       const codes = codeMatcher ? codeMatcher(params) : [];
 
       if (!phrases.length && !codes.length) {
-        return { notices: [], variant: null, diagnostics: ["skipped: no usable search terms"] };
+        return { notices: [], variant: null, status: "ok", diagnostics: ["skipped: no usable search terms"] };
       }
 
+      // Rows whose deadline has passed are never shown, even when the index has not been pruned
+      // (a source whose ingest keeps failing would otherwise serve closed tenders indefinitely).
+      const today = todayUTC();
       const hits = [];
+      let closed = 0;
       for (const row of index.rows) {
         const score = scoreRow(row, phrases, codes);
         if (score <= 0) continue;
+        if (row[COL.deadline] && row[COL.deadline] < today) { closed++; continue; }
         hits.push({ score, row });
       }
-      hits.sort((a, b) => b.score - a.score);
+      // Best match first; among equal matches (every code-only hit scores the same), soonest
+      // deadline first, so the cut to `limit` drops later deadlines rather than arbitrary rows.
+      const dl = (r) => r[COL.deadline] || "9999-12-31";
+      hits.sort((a, b) => b.score - a.score || (dl(a.row) < dl(b.row) ? -1 : dl(a.row) > dl(b.row) ? 1 : 0));
 
       const notices = hits.slice(0, params.limit || 40).map(({ row }) => ({
         id: row[COL.id],
@@ -179,10 +223,11 @@ export function makeCachedSource({ id, label, countries, indexName, codeMatcher,
       }));
 
       diagnostics.push(`index of ${index.count} open notices, refreshed ${ageHours === null ? "unknown" : ageHours + "h"} ago`);
-      if (ageHours !== null && ageHours > 48) {
+      if (closed) diagnostics.push(`${closed} matching notice(s) past their deadline left out`);
+      if (stale) {
         diagnostics.push(`STALE: this index has not refreshed in ${Math.round(ageHours / 24)} days — check the ingestion workflow`);
       }
-      return { notices, variant: `cached index (${ageHours ?? "?"}h old)`, diagnostics, ageHours };
+      return { notices, matched: hits.length, status: stale ? "stale" : "ok", variant: `cached index (${ageHours ?? "?"}h old)`, diagnostics, ageHours };
     },
   };
 }

@@ -57,12 +57,12 @@ function toNotice(row) {
   };
 }
 
-export async function search({ keywords, curatedLabels, daysBack, country, limit }) {
+export async function search({ keywords, curatedLabels, daysBack, country, limit, signal }) {
   const diagnostics = [];
 
   // Only query BOAMP when France is in scope — otherwise it is wasted latency on every search.
   if (country && country !== "FRA") {
-    return { notices: [], variant: null, diagnostics: ["skipped: country filter excludes France"] };
+    return { notices: [], variant: null, status: "ok", diagnostics: ["skipped: country filter excludes France"] };
   }
 
   // Prefer the curated concept labels (e.g. "Chairs and seating") when the dictionary matched,
@@ -73,8 +73,10 @@ export async function search({ keywords, curatedLabels, daysBack, country, limit
     .filter((w) => w.length > 3)
     .slice(0, 6);
 
-  if (!words.length) return { notices: [], variant: null, diagnostics: ["skipped: no usable search words"] };
+  if (!words.length) return { notices: [], variant: null, status: "ok", diagnostics: ["skipped: no usable search words"] };
 
+  // The second attempt runs only when the first FAILED (HTTP error, unreadable reply), not when it
+  // found nothing: 0 rows is an answer, and widening the query after it only adds noise.
   const attempts = [
     { label: "text+date", where: buildWhere(words, daysBack) },
     { label: "text only", where: `(${words.map((w) => `search(objet, ${q(w)})`).join(" OR ")})` },
@@ -83,19 +85,21 @@ export async function search({ keywords, curatedLabels, daysBack, country, limit
   for (const attempt of attempts) {
     const url = `${ENDPOINT}?where=${encodeURIComponent(attempt.where)}&limit=${Math.min(limit, 100)}&order_by=dateparution%20DESC`;
     try {
-      const res = await fetchWithTimeout(url, { headers: { accept: "application/json" } });
+      const res = await fetchWithTimeout(url, { headers: { accept: "application/json" }, signal });
       const text = await res.text();
       if (!res.ok) { diagnostics.push(`${attempt.label}: HTTP ${res.status} — ${text.slice(0, 200)}`); continue; }
       let data;
       try { data = JSON.parse(text); }
       catch { diagnostics.push(`${attempt.label}: not JSON — ${text.slice(0, 140)}`); continue; }
       const rows = data.results || data.records || [];
-      if (!rows.length) { diagnostics.push(`${attempt.label}: 0 rows`); continue; }
+      const total = Number(data.total_count);
       // v2.1 returns flat records; older shapes nest under `fields`.
-      return { notices: rows.map((r) => toNotice(r.fields || r)), variant: attempt.label, diagnostics };
+      return { notices: rows.map((r) => toNotice(r.fields || r)), matched: Number.isFinite(total) ? total : rows.length, variant: attempt.label, status: "ok", diagnostics };
     } catch (err) {
-      diagnostics.push(`${attempt.label}: ${err.name === "AbortError" ? "timed out" : err.name}`);
+      const timedOut = err.name === "AbortError" || err.name === "TimeoutError";
+      diagnostics.push(`${attempt.label}: ${timedOut ? "timed out" : err.message || err.name}`);
+      if (timedOut) return { notices: [], variant: null, status: "timeout", diagnostics };
     }
   }
-  return { notices: [], variant: null, diagnostics };
+  return { notices: [], variant: null, status: "error", diagnostics };
 }

@@ -9,28 +9,54 @@
 //   { id, title, buyer, country, deadline, daysLeft, published, cpv, link, source }
 // `source` is the short provenance label shown on each result.
 
-/** Wrap any fetch with a hard timeout so one slow portal cannot eat the function's budget. */
+/**
+ * Wrap any fetch with a hard timeout so one slow portal cannot eat the function's budget. The
+ * timeout also covers reading the body (it is not cleared when the headers arrive), and an outer
+ * `options.signal` (the whole request's deadline) aborts it too.
+ */
 export async function fetchWithTimeout(url, options = {}, ms = 6000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
+  const outer = options.signal;
+  if (outer) {
+    if (outer.aborted) controller.abort();
+    else outer.addEventListener("abort", () => controller.abort(), { once: true });
+  }
   try {
     return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
+  } catch (err) {
     clearTimeout(timer);
+    throw err;
   }
 }
 
-/** Days between now and an ISO-ish date string. Null when unknown — never guessed. */
+/**
+ * Whole calendar days from today (UTC) to the deadline's date: 0 = closes today, 1 = tomorrow,
+ * -1 = closed yesterday. Null when unknown — never guessed.
+ *
+ * Counted on dates, not hours: the previous hour-based version rounded, so a tender closing today
+ * read "1 day" before noon UTC, and one that closed yesterday read "0, today" (as -0) until noon.
+ * Most portals publish a date (sometimes with a time in the buyer's own timezone), so the date is
+ * the honest unit; the date part is read as written, before any timezone shift.
+ */
 export function daysUntil(dateStr) {
-  if (!dateStr) return null;
-  const d = new Date(String(dateStr).slice(0, 10) + "T23:59:59Z");
-  if (isNaN(d)) return null;
-  return Math.round((d - new Date()) / 86400000);
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dateStr || ""));
+  if (!m) return null;
+  const deadline = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (isNaN(deadline)) return null;
+  const now = new Date();
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.round((deadline - today) / 86400000) + 0;   // + 0 turns -0 into 0
 }
 
 /** A notice is only an opportunity if its deadline has not passed. Unknown deadlines are kept. */
 export function isStillOpen(notice) {
-  return notice.daysLeft === null || notice.daysLeft >= 0;
+  return notice.daysLeft === null || notice.daysLeft === undefined || notice.daysLeft >= 0;
+}
+
+/** Today's date in UTC as YYYY-MM-DD, for comparing against index deadlines. */
+export function todayUTC() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export function normaliseText(value) {

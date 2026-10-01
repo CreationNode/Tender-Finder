@@ -322,6 +322,8 @@ import { rankCpv } from "./assets/rank.mjs";
 
 const $=id=>document.getElementById(id);
 function esc(s){return String(s??"").replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]));}
+// Links come from third-party portals: only http(s) is ever put in an href.
+function safeLink(u){u=String(u??"").trim();return /^https?:\/\//i.test(u)?u:"#";}
 
 // Grouped so it is obvious which markets have national sources, rather than listing every country
 // and silently returning little for most of them.
@@ -479,7 +481,16 @@ function renderList(){
     (!FILTER.within||(r.daysLeft!==null&&r.daysLeft!==undefined&&r.daysLeft<=Number(FILTER.within))));
   const n=rows.length, total=LAST.results.length;
   $("status").textContent=`${n} open ${n===1?"tender":"tenders"}`;
-  $("substatus").textContent=n===total?"closing soonest first":`filtered from ${total}`;
+  // Each source returns its best matches only; say so when a source had more than it sent.
+  const cut=(LAST.sources||[]).some(s=>s.matched>s.found);
+  $("substatus").textContent=(n===total?"closing soonest first":`filtered from ${total}`)+(cut?" · some sources had more matches than shown, see below":"");
+  if(!total&&!LAST.anyAnswered){
+    $("status").textContent="No answer from the sources";$("substatus").textContent="";
+    list.innerHTML=`<li class="empty"><b>We couldn’t reach the tender sources just now.</b>
+      None of the portals for this search answered, so this is not a sign that nothing is open.
+      The line below says what each one returned. Try again in a few minutes.</li>`;
+    return;
+  }
   if(!total){
     const term=LAST.term;
     list.innerHTML=`<li class="empty"><b>Nothing open right now for “${esc(term)}”.</b>
@@ -500,7 +511,7 @@ function renderList(){
     li.innerHTML=`
       ${dueBlock(r)}
       <div>
-        <h3><a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a></h3>
+        <h3><a href="${esc(safeLink(r.link))}" target="_blank" rel="noopener">${esc(r.title)}</a></h3>
         ${r.buyer?`<div class="buyer">${esc(r.buyer)}</div>`:""}
         <div class="facts">${val?`<span class="value">${esc(val)}</span>`:""}${facts.map(f=>`<span>${esc(f)}</span>`).join("")}</div>
         ${codes.length?`<div class="codes">${esc(codes.slice(0,4).join(" · "))}</div>`:""}
@@ -544,22 +555,18 @@ function renderCoverage(sources){
   const asked=sources.filter(s=>!s.skipped);
   if(!asked.length){el.textContent="";return;}
   const parts=asked.map(s=>{
-    if(s.error) return `<span class="down">${esc(s.source)}</span> unavailable`;
-    if(s.found===0){
-      const diag=(s.diagnostics||[]).join(" ");
-      const why=/index .* not available/.test(diag)?"index not built yet"
-               :/EXPIRED|rejected/.test(diag)?"key expired"
-               :/rate limit/.test(diag)?"rate limited"
-               :/HTTP|timed out|abort/i.test(diag)?"unavailable"
-               :"0 found";
-      return why==="0 found"?`${esc(s.source)} 0`:`<span class="down">${esc(s.source)}</span> ${why}`;
-    }
+    const name=esc(s.source);
+    // The server reports each source's status; failures are never shown as "0".
+    if(s.status==="error") return `<span class="down">${name}</span> unavailable`;
+    if(s.status==="timeout") return `<span class="down">${name}</span> did not answer in time`;
+    if(s.status==="missing") return `<span class="down">${name}</span> not available yet`;
+    const count=s.matched>s.found?`${s.found} of ${s.matched}`:`${s.found}`;
     if(typeof s.ageHours==="number"){
-      const stale=(s.diagnostics||[]).some(d=>/STALE/.test(d));
+      const stale=s.status==="stale";
       const age=s.ageHours<24?`${s.ageHours}h`:`${Math.round(s.ageHours/24)}d`;
-      return `<b>${esc(s.source)}</b> ${s.found} <span${stale?' class="down"':""}>(data ${age} old${stale?", stale":""})</span>`;
+      return `${s.found?"<b>":""}${name}${s.found?"</b>":""} ${count} <span${stale?' class="down"':""}>(data ${age} old${stale?", stale":""})</span>`;
     }
-    return `<b>${esc(s.source)}</b> ${s.found} (live)`;
+    return `${s.found?"<b>":""}${name}${s.found?"</b>":""} ${count} (live)`;
   });
   el.innerHTML="Searched: "+parts.join(" · ");
 }
@@ -592,18 +599,25 @@ async function run(){
     const res=await fetch("/.netlify/functions/search",{
       method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)
     });
-    const data=await res.json();
+    let data;
+    try{ data=await res.json(); }
+    catch{
+      // A gateway error or timeout returns an HTML page, not JSON.
+      const err=new Error("The search service didn’t respond.");
+      err.detail=" Try again in a moment.";
+      throw err;
+    }
     if(!res.ok){
       const err=new Error(data.error||"Search failed.");
       err.detail=data.detail||"";
       err.diagnostics=data.diagnostics||[];
       throw err;
     }
-    LAST={results:data.results||[],sources:data.sources||[],term:text};
+    LAST={results:data.results||[],sources:data.sources||[],term:text,anyAnswered:data.anyAnswered!==false};
     $("resultsArea").classList.remove("empty-state");
     renderFacets();renderList();renderCoverage(LAST.sources);
   }catch(err){
-    LAST={results:[],sources:[],term:text};
+    LAST={results:[],sources:[],term:text,anyAnswered:true};
     $("resultsArea").classList.remove("empty-state");
     $("facets").innerHTML="";$("coverage").textContent="";
     $("status").textContent="Search failed";$("substatus").textContent="";
