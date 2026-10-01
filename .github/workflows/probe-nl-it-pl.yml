@@ -1,4 +1,4 @@
-name: Probe DE/NO sources (temporary)
+name: Probe Doffin/TED overlap (temporary)
 on:
   push:
     branches: [probe-nl-it-pl]
@@ -8,16 +8,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-        with: { ref: germany-norway }
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
       - env:
           DOFFIN_API_KEY: ${{ secrets.DOFFIN_API_KEY }}
-        run: |
-          set +e
-          time node ingest/run.mjs doffin
-          jq -c '{count, notes}' data/index/doffin.json
-          jq -c '.rows[:3][]' data/index/doffin.json
-          jq -c '[.rows[] | select(.[6] | test("CPV"))] | length' data/index/doffin.json
-          jq -r '[.rows[] | .[4]] | sort | .[0], .[-1]' data/index/doffin.json
-          curl -sS -o /dev/null -w "link %{http_code}\n" -L "$(jq -r '.rows[0][7]' data/index/doffin.json)"
+        run: node probe/overlap.mjs
