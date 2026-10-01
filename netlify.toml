@@ -12,3 +12,9 @@
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "no-referrer"
+    # Scripts, styles, fonts and data all come from this site; the page talks only to its own
+    # functions. The inline <style> block needs 'unsafe-inline' for styles (scripts have no inline
+    # code). The JSON-LD block is data, not script, and is not affected.
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    Strict-Transport-Security = "max-age=31536000"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), interest-cohort=()"

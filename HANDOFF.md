@@ -146,9 +146,10 @@ Orchestrator guarantees (`search.js`):
 ## 3. File map
 
 ```
-index.html                     Whole UI: search, translation strip, code chips, tile map (TILES array,
-                               39 tiles; "deep" = CAN USA GBR FRA UKR AUS), grouped country dropdown,
-                               results, coverage line, diagnostics disclosure, SEO head block.
+index.html                     Page markup, styles and SEO head block (no inline script, for the CSP).
+assets/app.mjs                 Page script: search, translation strip, code chips, grouped country
+                               dropdown, result filters, coverage line, "Where we look" counts.
+assets/fonts/                  Self-hosted fonts and their SIL OFL licences.
 assets/rank.mjs                Shared CPV ranker (see 2.3).
 data/cpv-map.json              Curated dictionary.
 data/cpv-full.json             Generated full vocabulary (absent from zip).
@@ -157,7 +158,6 @@ netlify.toml
 netlify/functions/search.js    Orchestrator.
 netlify/functions/stats.js     GET ?days=N&key=… → totals, matchRate, emptyRate, topMisses. 404 unless STATS_KEY matches.
 netlify/functions/coverage.js  GET → per-source open-notice counts and freshness from the manifest, for the page's "Where we look" table.
-netlify/functions/probe.js     TEMPORARY CanadaBuys/AusTender reachability probe, gated by PROBE_KEY.
                                DELETE after the CanadaBuys question is settled.
 netlify/lib/telemetry.js       safeTerm, logMetric ("SEARCH_METRIC"), recordAggregate (Blobs store
                                "tender-finder-stats", daily/YYYY-MM-DD.json, top 300 misses).
@@ -244,9 +244,9 @@ official dataset) is an open improvement.
 **CanadaBuys (`canadabuys.mjs`)** — candidate CSV URLs plus CKAN discovery
 (`open.canada.ca … package_show?id=6abd20d4-7a1c-4b38-baa2-9525d0bb2fd2`); parses bilingual columns and
 `*`-separated multi-values. Every URL returns 403 from the owner's IP, apparently IP-level. **Next step:**
-see whether it works from the GitHub Actions runner on the first workflow run, and/or deploy the probe
-function with `PROBE_KEY` set and call it from Netlify's IPs. If blocked everywhere, contact the
-operator and document it — do not circumvent.
+GitHub Actions runners get the same 403 (checked 2026-10-01), so the source is disabled on the search
+side (`CANADABUYS_ENABLED=1` re-enables it) and the probe function was deleted. Contact the operator
+and document it — do not circumvent.
 
 ---
 
@@ -277,7 +277,7 @@ refreshes need no redeploy**.
 | `AUSTENDER_DEBUG` | local | Dump a raw feed item. |
 | `FORCE` | workflow input | Bypass the yield canary. |
 | `INDEX_BASE_URL` | Netlify env | Where cached sources read indexes. |
-| `PROBE_KEY` | Netlify env | Gates the temporary probe function. |
+| `STATS_KEY` | Netlify env | Opens the private stats endpoint (16+ characters). |
 | `COMMIT_INDEXES_TO_MAIN` | GitHub repo variable | Fallback: commit indexes to main instead. |
 
 **Local commands:** `npm run verify` (dry run), `npm run ingest` (all) or
@@ -294,10 +294,10 @@ now", not a bug.
 
 - Deployed to Netlify manually (drag-and-drop of the project folder) with locally built indexes.
   Owner reports "everything seems to work well."
-- **Not yet on GitHub.** The owner deliberately held GitHub back until the build was final. Consequently
-  the daily workflow has never run, and indexes are only as fresh as the last manual build.
-- Placeholders still present: `REPLACE-WITH-YOUR-DOMAIN` (index.html ×3, robots.txt, sitemap.xml) and
-  `YOUR-USERNAME` (the "suggest a better match" GitHub issue link in index.html).
+- On GitHub at https://github.com/CreationNode/Tender-Finder (public) since 2026-09-30; Netlify deploys
+  from `main`, and the daily workflow publishes indexes to the `indexes` branch.
+- Domain placeholders are replaced: the site is https://whattheybuy.org and the issue links point at
+  CreationNode/Tender-Finder.
 - Past operational pitfall: the owner had two copies of the project folder and repeatedly ran/deployed
   the old one. When giving instructions, name one folder explicitly.
 
@@ -313,8 +313,8 @@ now", not a bug.
    → Read and write** (without it the workflow goes green but publishes nothing); run the workflow
    once; set `INDEX_BASE_URL` in Netlify.
 4. Rotate the exposed SAM key (update `.env` and secret together). Calendar: rotate again before expiry.
-5. Settle CanadaBuys (first CI run and/or probe), then **delete `netlify/functions/probe.js`**.
-6. Replace domain and username placeholders.
+5. CanadaBuys: settled as blocked (403 from runners too); probe deleted. Ask the operator for access.
+6. Domain and username placeholders: done.
 
 **P1 — prove it works, then fix what it shows**
 7. Retrieval-quality check: ten realistic searches across countries and sectors, written down with
@@ -326,7 +326,7 @@ now", not a bug.
    test broken by a hard-coded date), and CSV parsing, using small recorded fixtures. Run in CI.
 9. `SOURCES.md`: per portal — access method, licence, terms, attribution. Plus a short privacy note in
    the UI matching §5 telemetry.
-10. Accessibility and mobile pass on the tile map, search and results.
+10. Accessibility and mobile pass on the search, filters and results (first pass done 2026-10-01).
 
 **P2 — scale and comprehension**
 11. Inverted index: build token → row-id maps at ingest time, shard by prefix, fetch only what a query

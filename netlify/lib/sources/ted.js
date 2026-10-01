@@ -29,11 +29,18 @@ const FIELDS = [
   "procedure-identifier",
 ];
 
+const TED_STOP = new Set(["and", "not", "the", "for", "with", "from", "into", "near", "any", "all", "our", "your", "are", "was", "who", "what", "that", "this", "these", "those", "etc"]);
+
 function buildBase({ cpvCodes, keywords }) {
   if (cpvCodes?.length) return `classification-cpv IN (${cpvCodes.join(" ")})`;
+  // TED's expert query treats AND/OR/NOT as operators and chokes on bare punctuation, and words
+  // like "and" or "the" only dilute the full-text match.
   const words = (keywords || [])
     .map((k) => String(k).replace(/[^\p{L}\p{N}-]/gu, " ").trim())
-    .join(" ").split(/\s+/).filter((w) => w.length > 2).slice(0, 10);
+    .join(" ").split(/\s+/)
+    .map((w) => w.replace(/^-+|-+$/g, ""))
+    .filter((w) => w.length > 2 && /[\p{L}\p{N}]/u.test(w) && !TED_STOP.has(w.toLowerCase()))
+    .slice(0, 10);
   return words.length ? `FT IN (${words.join(" ")})` : "";
 }
 

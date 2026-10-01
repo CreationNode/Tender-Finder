@@ -33,6 +33,9 @@ const decode = (s) => String(s || "")
   .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
   .replace(/\s+/g, " ").trim();
 const first = (xml, re) => { const m = re.exec(xml); return m ? decode(m[1]) : ""; };
+// Feed timestamps mix "Z" and "+02:00" offsets, so they are compared as instants, not as strings
+// (string order was off by up to two hours, worst around the October clock change).
+const ts = (s) => Date.parse(s) || 0;
 const entryId = (url) => (/(\d+)\s*$/.exec(url) || [])[1] || "";
 
 export function parseEntry(xml) {
@@ -122,8 +125,8 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
         const e = parseEntry(m[1]);
         if (!e.id) continue;
         entries++;
-        if (!newestSeen || e.updated > newestSeen) newestSeen = e.updated;
-        if (stopAt && e.updated && e.updated <= stopAt) { reachedStop = true; continue; }
+        if (!newestSeen || ts(e.updated) > ts(newestSeen)) newestSeen = e.updated;
+        if (stopAt && e.updated && ts(e.updated) <= ts(stopAt)) { reachedStop = true; continue; }
         const key = e.row[0];
         if (decided.has(key) || (older && decidedBefore.has(key))) continue;
         decided.add(key);

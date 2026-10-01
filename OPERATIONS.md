@@ -172,7 +172,7 @@ indefinitely. Only worth it once coverage is good enough that alerts would actua
 ## 3.1 Pre-launch checklist
 
 **Housekeeping**
-- [ ] Delete `netlify/functions/probe.js` (temporary diagnostic).
+- [x] Delete `netlify/functions/probe.js` (temporary diagnostic).
 - [ ] Ensure `.env` is not in the deployed folder; set `SAM_API_KEY` as a Netlify environment
       variable instead.
 - [ ] Replace `REPLACE-WITH-YOUR-DOMAIN` in `robots.txt`, `sitemap.xml` and `index.html`.
@@ -188,8 +188,8 @@ indefinitely. Only worth it once coverage is good enough that alerts would actua
 - [ ] Attribute each source visibly (already shown per result and in the footer).
 
 **Quality**
-- [ ] Mobile check: the tile map and results on a phone.
-- [ ] Keyboard and screen-reader pass on the map, search and results.
+- [ ] Mobile check: search, filters and results on a phone.
+- [ ] Keyboard and screen-reader pass on the search, filters and results.
 - [ ] Empty and error states read clearly to a stranger, not just to you.
 - [ ] Confirm the coverage line honestly reports out-of-scope and unavailable sources.
 

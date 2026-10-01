@@ -23,5 +23,8 @@ const cached = makeCachedSource({
 export const id = cached.id;
 export const label = cached.label;
 export const countries = cached.countries;
-export const enabled = cached.enabled;
+// Off: the CanadaBuys portal refuses requests from our servers (HTTP 403, including from GitHub
+// runners), so there is no index to read. Searches report it as disabled instead of asking for a
+// file that will never exist. Turn back on once the operator grants access.
+export const enabled = process.env.CANADABUYS_ENABLED === "1";
 export const search = cached.search;
