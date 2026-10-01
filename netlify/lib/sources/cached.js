@@ -121,10 +121,10 @@ function scoreRow(row, phrases, codes) {
   // IT hardware) are real evidence but weaker than the words the person actually typed.
   if (codes.some((c) => row[COL.codes].includes(c))) { score += 4; evidence = true; }
   const tokens = rowTokens(row);
-  for (const { ws, need, weight } of phrases) {
+  for (const { ws, need, weight, must } of phrases) {
     let hit = 0;
     for (const w of ws) if (tokens.has(w)) hit++;
-    if (hit >= need) { evidence = true; score += weight + hit; }
+    if (hit >= need && (!must || tokens.has(must))) { evidence = true; score += weight + hit; }
   }
   return evidence ? score : 0;
 }
@@ -148,11 +148,42 @@ function buildPhrases(params, localTerms) {
   return phrases;
 }
 
-/** CPV prefix for hierarchy-aware matching: 09331000 covers 09331200. Division-only codes are too broad. */
+/**
+ * A long phrase may miss one word, but never its most specific one. "custodial services for federal
+ * buildings" used to match any federal-building row without "custodial" (7 unrelated SAM rows, while
+ * "custodial services" alone found 46 custodial contracts). The rarest word in this index is the
+ * one that says what the person sells, so it is required for the long phrase.
+ */
+function requireRarest(phrases, rows) {
+  const loose = phrases.filter((p) => p.need < p.ws.length);
+  if (!loose.length) return;
+  const df = new Map();
+  for (const p of loose) for (const w of p.ws) df.set(w, 0);
+  for (const row of rows) {
+    const t = rowTokens(row);
+    for (const w of df.keys()) if (t.has(w)) df.set(w, df.get(w) + 1);
+  }
+  for (const p of loose) p.must = p.ws.reduce((a, b) => (df.get(b) < df.get(a) ? b : a));
+  // The rarest word of the user's own query also counts alone, at the lowest weight: rows with the
+  // whole phrase still rank first, but "Custodial Services at NM009" is found for "custodial services
+  // for federal buildings" instead of nothing.
+  const own = loose.find((p) => p.weight === 10);
+  if (own && !phrases.some((p) => p.ws.length === 1 && p.ws[0] === own.must)) phrases.push({ ws: [own.must], need: 1, weight: 0 });
+}
+
+/**
+ * CPV prefix for hierarchy-aware matching: 09331000 covers 09331200.
+ *
+ * A division-only code (45000000, construction) becomes the 2-digit prefix "45" only when the
+ * request has no narrower code in that division: "road paving" sends 45000000 and 45233000, and
+ * then only 45233 is used, but "construction" alone sends 45000000 and needs the whole division.
+ * (Dropping every 2-digit prefix left national sources with English words only, so Spain's 356 open
+ * construction tenders matched nothing.)
+ */
 export function cpvPrefixes(params) {
-  return (params.cpvCodes || [])
-    .map((c) => String(c).replace(/0+$/, ""))
-    .filter((c) => c.length >= 3)
+  const prefixes = [...new Set((params.cpvCodes || []).map((c) => String(c).replace(/\D/g, "").replace(/0+$/, "")).filter((c) => c.length >= 2))];
+  return prefixes
+    .filter((c) => c.length >= 3 || !prefixes.some((o) => o.length >= 3 && o.startsWith(c)))
     .map((c) => `CPV ${c}`);
 }
 
@@ -187,6 +218,7 @@ export function makeCachedSource({ id, label, countries, indexName, codeMatcher,
       const stale = ageHours !== null && ageHours > 48;
 
       const phrases = buildPhrases(params, localTerms);
+      requireRarest(phrases, index.rows);
       const codes = codeMatcher ? codeMatcher(params) : [];
 
       if (!phrases.length && !codes.length) {

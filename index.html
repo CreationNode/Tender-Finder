@@ -389,20 +389,30 @@ function searchFull(text,exclude){
   return rankCpv(text,FULL,exclude,8);
 }
 
-// Match the user's words against the dictionary. Longest term first so "office chair" beats "chair".
+// Match the user's words against the dictionary, on WHOLE words (a plural "s"/"es" allowed).
+// Substring matching read "healthcare" as "car", "broadband" as "road" and "team" as "tea", and the
+// wrong code then replaced the user's words at TED. Where two entries match overlapping words, only
+// the longer match is kept: "ballistic helmets" is body armour, not also safety helmets.
+function termRegex(term){
+  const t=term.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+  return new RegExp(`(^|[^\\p{L}\\p{N}])(${t}(?:s|es)?)(?=$|[^\\p{L}\\p{N}])`,"u");
+}
 function matchCodes(text,map){
   const q=text.toLowerCase().trim();
   if(!q) return [];
   const hits=[];
   for(const entry of map.entries){
     for(const term of [...entry.terms].sort((a,b)=>b.length-a.length)){
-      if(q.includes(term.toLowerCase())){
-        hits.push({label:entry.label,cpv:entry.cpv,psc:entry.psc||[],pt:entry.pt||[],matched:term});
+      const m=termRegex(term).exec(q);
+      if(m){
+        const start=m.index+m[1].length;
+        hits.push({label:entry.label,cpv:entry.cpv,psc:entry.psc||[],pt:entry.pt||[],matched:term,start,end:start+m[2].length});
         break;
       }
     }
   }
-  return hits.sort((a,b)=>b.matched.length-a.matched.length).slice(0,4);
+  const kept=hits.filter(h=>!hits.some(o=>o!==h&&o.end-o.start>h.end-h.start&&o.start<=h.start&&o.end>=h.end));
+  return kept.sort((a,b)=>b.matched.length-a.matched.length).slice(0,4);
 }
 
 function renderOfficial(suggestions){
