@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>What They Buy: find open public tenders for what you make</title>
-<meta name="description" content="Free search for open government contracts. Describe what you make in plain words and see live public tenders buying it — EU, UK, US, Canada, Brazil, Ukraine and Australia. No account, no tracking.">
+<meta name="description" content="Free search for open government contracts. Describe what you make in plain words and see live public tenders buying it — EU, UK, US, Canada, Brazil, Spain, Ukraine and Australia. No account, no tracking.">
 <link rel="canonical" href="https://whattheybuy.org/">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
 
@@ -17,7 +17,7 @@
 <meta property="og:site_name" content="What They Buy">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="What do you make? Find public tenders buying it">
-<meta name="twitter:description" content="Search open government contracts across seven countries by describing your product in plain language. Free and open source.">
+<meta name="twitter:description" content="Search open government contracts across eight countries by describing your product in plain language. Free and open source.">
 
 <!-- Structured data: tells search engines this is a free, no-login tool rather than a company page. -->
 <script type="application/ld+json">
@@ -29,7 +29,7 @@
   "url": "https://whattheybuy.org/",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Any",
-  "description": "Free search for open government contract opportunities. Translates plain-language product descriptions into official procurement codes (CPV, PSC, NAICS, GSIN) and searches public tender sources across the EU, UK, US, Canada, Brazil, Ukraine and Australia.",
+  "description": "Free search for open government contract opportunities. Translates plain-language product descriptions into official procurement codes (CPV, PSC, NAICS, GSIN) and searches public tender sources across the EU, UK, US, Canada, Brazil, Spain, Ukraine and Australia.",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
   "isAccessibleForFree": true,
   "inLanguage": "en",
@@ -290,6 +290,7 @@
           <tr><td class="k">Find a Tender</td><td>United Kingdom</td><td>Above threshold</td><td><span class="state">Daily</span></td></tr>
           <tr><td class="k">Contracts Finder</td><td>United Kingdom</td><td>Below threshold</td><td><span class="state">Daily</span></td></tr>
           <tr><td class="k">SAM.gov</td><td>United States</td><td>Federal</td><td><span class="state">Daily</span></td></tr>
+          <tr><td class="k">PLACSP</td><td>Spain</td><td>Including below threshold</td><td><span class="state">Daily</span></td></tr>
           <tr><td class="k">PNCP</td><td>Brazil</td><td>Federal, state and municipal; titles in Portuguese</td><td><span class="state">Daily</span></td></tr>
           <tr><td class="k">Prozorro</td><td>Ukraine</td><td>All public buyers; titles in Ukrainian, matched by code</td><td><span class="state">Daily</span></td></tr>
           <tr><td class="k">AusTender</td><td>Australia</td><td>Federal; feed has no closing dates</td><td><span class="state">Daily</span></td></tr>
@@ -321,8 +322,8 @@ function esc(s){return String(s??"").replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&gt;
 // Grouped so it is obvious which markets have national sources, rather than listing every country
 // and silently returning little for most of them.
 const COUNTRY_GROUPS=[
-  ["National sources",[["GBR","United Kingdom"],["USA","United States"],["FRA","France"],["UKR","Ukraine"],["AUS","Australia"],["CAN","Canada"],["BRA","Brazil"]]],
-  ["EU-wide (TED) only",[["AUT","Austria"],["BEL","Belgium"],["BGR","Bulgaria"],["HRV","Croatia"],["CYP","Cyprus"],["CZE","Czechia"],["DNK","Denmark"],["EST","Estonia"],["FIN","Finland"],["DEU","Germany"],["GRC","Greece"],["HUN","Hungary"],["IRL","Ireland"],["ITA","Italy"],["LVA","Latvia"],["LTU","Lithuania"],["LUX","Luxembourg"],["MLT","Malta"],["NLD","Netherlands"],["POL","Poland"],["PRT","Portugal"],["ROU","Romania"],["SVK","Slovakia"],["SVN","Slovenia"],["ESP","Spain"],["SWE","Sweden"],["NOR","Norway"],["ISL","Iceland"],["CHE","Switzerland"],["LIE","Liechtenstein"]]],
+  ["National sources",[["GBR","United Kingdom"],["USA","United States"],["FRA","France"],["UKR","Ukraine"],["AUS","Australia"],["CAN","Canada"],["BRA","Brazil"],["ESP","Spain"]]],
+  ["EU-wide (TED) only",[["AUT","Austria"],["BEL","Belgium"],["BGR","Bulgaria"],["HRV","Croatia"],["CYP","Cyprus"],["CZE","Czechia"],["DNK","Denmark"],["EST","Estonia"],["FIN","Finland"],["DEU","Germany"],["GRC","Greece"],["HUN","Hungary"],["IRL","Ireland"],["ITA","Italy"],["LVA","Latvia"],["LTU","Lithuania"],["LUX","Luxembourg"],["MLT","Malta"],["NLD","Netherlands"],["POL","Poland"],["PRT","Portugal"],["ROU","Romania"],["SVK","Slovakia"],["SVN","Slovenia"],["SWE","Sweden"],["NOR","Norway"],["ISL","Iceland"],["CHE","Switzerland"],["LIE","Liechtenstein"]]],
 ];
 const COUNTRY_NAME=Object.fromEntries(COUNTRY_GROUPS.flatMap(([,l])=>l));
 const sel=$("country");

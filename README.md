@@ -68,6 +68,7 @@ ingested for it.
 | **UK-FTS** | UK above-threshold | none | OCDS release packages -> index | OGL v3 | cached |
 | **UK-CF** | UK **below-threshold** | none | OCDS search (stages=planning,tender) -> index | OGL v3 | cached |
 | **AUSTENDER** | Australia federal | none | current-ATM RSS -> index | CC BY 3.0 AU (verify) | cached |
+| **PLACSP** | Spain, **incl. below-threshold** | none | open-data ATOM feed (CODICE) -> index | Spanish public-sector reuse (verify); robots.txt is a blanket `Disallow`, used under the open-data exception in HANDOFF.md | cached |
 | **PNCP** | Brazil, all levels of government | none | paged "open for proposals" API -> index | Brazilian public open data (verify) | cached |
 
 Sources declare which countries they cover, so a US search never spends latency on TED and a French

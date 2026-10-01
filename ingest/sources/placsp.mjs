@@ -1,9 +1,9 @@
 // Ingest: PLACSP — Spain's Plataforma de Contratación del Sector Público.
 //
-// SWITCHED OFF unless PLACSP_ENABLED=1. The platform publishes these ATOM feeds on its open-data
-// page for reuse, but the same host's robots.txt says "Disallow: /" for every agent (checked
-// 2026-10-01). Under this project's access policy that means asking the operator before collecting,
-// so the code is ready and waits for their answer. See SOURCES notes in README.md.
+// The platform publishes these ATOM feeds on its open-data page for reuse. The same host's
+// robots.txt says "Disallow: /" for every agent (checked 2026-10-01); the owner decided that a
+// documented open-data feed is fair to use under a blanket rule aimed at page crawlers (see the
+// access-ethics section of HANDOFF.md). Keep it light: one run a day, honest agent, link back.
 //
 // The feed (sindicación 643: every buyer profile hosted on PLACSP, including below-threshold
 // contracts) is a CHANGE LOG, newest first, ~127 entries and ~4 MB per page, with a rel="next" link
@@ -60,11 +60,8 @@ export function parseEntry(xml) {
 }
 
 export async function ingest({ fetchImpl = politeFetch, log = console.log, previousRows = [], previousState = {} } = {}) {
-  if (process.env.PLACSP_ENABLED !== "1") {
-    throw new Error("PLACSP is switched off (robots.txt disallows bots; operator permission pending). Set PLACSP_ENABLED=1 once granted.");
-  }
   const maxPages = Number(process.env.PLACSP_MAX_PAGES || 40);
-  const backfillDays = Number(process.env.PLACSP_BACKFILL_DAYS || 60);
+  const backfillDays = Number(process.env.PLACSP_BACKFILL_DAYS || 45);
   const today = new Date().toISOString().slice(0, 10);
   const backfillUntil = previousState.backfillUntil ||
     new Date(Date.now() - backfillDays * 864e5).toISOString();

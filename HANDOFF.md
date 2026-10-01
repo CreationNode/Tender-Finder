@@ -26,6 +26,10 @@ PLACSP to be (re-)added if wanted, SAM key rotation, `data/cpv-full.json` to be 
 
 **Access ethics (non-negotiable project policy).**
 - Do not scrape any site whose robots.txt or terms disallow automated access.
+- Exception, decided by the owner on 2026-10-01: a feed or API that the operator itself documents as
+  open data for reuse may be used even under a blanket robots.txt (`Disallow: /`), which is aimed at
+  crawlers walking web pages. Use it lightly, identify the agent, link back to every notice. Web
+  pages still follow robots.txt. (Spain's PLACSP ATOM feed is used on this basis.)
 - No headless-browser evasion, browser impersonation, residential proxies or other bot-evasion to get
   around a block. The user agent is an honest crawler string with a contact URL.
 - If an official source blocks automated access, the answer is: request access from the operator, or
