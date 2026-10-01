@@ -27,6 +27,10 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The ingest step parses untrusted portal data; it has no need for a write token in .git/config.
+          # Publishing passes the token explicitly.
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -36,14 +40,35 @@ jobs:
       # run was a cold start: incremental feeds (Prozorro, UK) re-seeded from scratch, closed notices
       # were never removed from a merged index, and the yield canary always compared against "no
       # previous index", so it could never block a bad run.
+      #
+      # A cold start is only allowed when the branch truly does not exist. If it exists but cannot be
+      # fetched (a network blip, a GitHub incident), the job must stop here: carrying on would rebuild
+      # every source from scratch and the publish step would force-push that over months of crawled
+      # data, which the history-less branch could never give back.
       - name: Restore previous indexes
+        id: restore
         run: |
-          if git fetch -q --depth 1 origin indexes; then
-            git checkout FETCH_HEAD -- data/index && git reset -q data/index
-            ls -la data/index
-          else
-            echo "No indexes branch yet: cold start."
+          set +e
+          for i in 1 2 3 4; do
+            git ls-remote --exit-code -q origin indexes >/dev/null 2>&1; code=$?
+            [ $code -eq 0 ] || [ $code -eq 2 ] && break
+            sleep $((i * 5))
+          done
+          if [ $code -eq 2 ]; then
+            echo "No indexes branch yet: cold start."; exit 0
           fi
+          if [ $code -ne 0 ]; then
+            echo "::error::Could not reach the indexes branch; stopping so the published data is not overwritten."; exit 1
+          fi
+          for i in 1 2 3 4; do
+            git fetch -q --depth 1 origin indexes && break
+            [ $i -eq 4 ] && { echo "::error::The indexes branch exists but could not be fetched; stopping so it is not overwritten."; exit 1; }
+            sleep $((i * 5))
+          done
+          set -e
+          git checkout FETCH_HEAD -- data/index && git reset -q data/index
+          test -s data/index/manifest.json || { echo "::error::Restored data has no manifest; stopping."; exit 1; }
+          ls -la data/index
 
       # run.mjs exits 1 if ANY source failed. That must not turn the whole job red: the last step
       # below is the real verdict (red only when nothing was ingested), so one blocked portal such
@@ -65,7 +90,8 @@ jobs:
       # force-pushing an orphan branch keeps exactly one copy and no history. Netlify still serves
       # the site from main and the search function reads indexes over HTTPS (see INDEX_BASE_URL).
       - name: Publish indexes to the data branch
-        if: always()
+        # Runs even after the ingest step fails or times out, but never when the restore failed.
+        if: always() && steps.restore.outcome == 'success'
         run: |
           if [ ! -f data/index/manifest.json ]; then
             echo "No manifest — nothing to publish."; exit 0
@@ -93,7 +119,7 @@ jobs:
       # Optional fallback: also commit into main. Off by default because of the history growth
       # described above; enable only for a low-volume deployment.
       - name: Commit refreshed indexes to main (optional)
-        if: always() && vars.COMMIT_INDEXES_TO_MAIN == 'true'
+        if: always() && steps.restore.outcome == 'success' && vars.COMMIT_INDEXES_TO_MAIN == 'true'
         run: |
           git config user.name "tender-finder-bot"
           git config user.email "actions@github.com"
@@ -115,19 +141,30 @@ jobs:
           echo "--- index files ---"
           ls -la data/index/ 2>/dev/null || echo "no index directory"
 
-      # Make a partial success visible without failing the whole run: the job is red only when
-      # NOTHING was ingested, amber-ish (green with a warning) when some sources worked.
-      - name: Fail only if every source failed
-        if: always()
+      # The verdict. The manifest is restored from yesterday, so "no error recorded" is not enough:
+      # each source must have been attempted in THIS run. The job is red when
+      #   * a source was not attempted this run (skipped for time, or the runner crashed), or
+      #   * a source that has data failed this run (it is now going stale: an expired key, a changed
+      #     format, a canary block), or
+      #   * no source produced an index at all.
+      # A source that has never produced data (CanadaBuys, blocked since launch) stays a warning, so a
+      # known gap does not turn every run red and hide new failures.
+      - name: Verdict
+        if: always() && steps.restore.outcome == 'success'
         run: |
           node -e "
             const fs=require('fs');
             let m={sources:{}};
             try{ m=JSON.parse(fs.readFileSync('data/index/manifest.json','utf8')); }catch{}
+            const run=m.runStartedAt||'';
             const all=Object.entries(m.sources||{});
-            const ok=all.filter(([,v])=>!v.lastError&&v.count>0);
-            const bad=all.filter(([,v])=>v.lastError);
-            console.log('Succeeded: '+(ok.map(([k,v])=>k+'('+v.count+')').join(', ')||'none'));
-            console.log('Failed:    '+(bad.map(([k,v])=>k+': '+v.lastError).join(' | ')||'none'));
-            if(!ok.length){ console.error('No source produced an index.'); process.exit(1); }
+            const notRun=all.filter(([,v])=>!run||!v.lastAttempt||v.lastAttempt<run);
+            const regressed=all.filter(([,v])=>v.lastError&&v.count>0&&v.lastAttempt>=run);
+            const neverData=all.filter(([,v])=>v.lastError&&!v.count);
+            const ok=all.filter(([,v])=>!v.lastError&&v.count>0&&v.lastAttempt>=run);
+            console.log('Refreshed this run: '+(ok.map(([k,v])=>k+'('+v.count+')').join(', ')||'none'));
+            for(const [k,v] of regressed) console.log('::error::'+k+' failed and is serving its previous index: '+v.lastError);
+            for(const [k] of notRun) console.log('::error::'+k+' was not attempted in this run');
+            for(const [k,v] of neverData) console.log('::warning::'+k+' has no data yet: '+String(v.lastError).split('\\n')[0]);
+            if(!ok.length||regressed.length||notRun.length) process.exit(1);
           "
