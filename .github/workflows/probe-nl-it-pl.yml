@@ -16,7 +16,7 @@ jobs:
           cat data/index/bzp.state.json
           time node ingest/run.mjs bzp || true
           cat data/index/bzp.state.json
-          time node ingest/run.mjs tenderned || true
+          true
           for s in tenderned bzp; do
             echo "== $s"; ls -la data/index/$s.json
             jq -c '{count, notes}' data/index/$s.json
