@@ -5,10 +5,25 @@
 //
 // Returns aggregate counts plus the top unmatched search terms — the working list of dictionary
 // entries to add. No personal data is stored or returned (see netlify/lib/telemetry.js).
+//
+// Private: the endpoint answers only when the STATS_KEY environment variable is set in Netlify and
+// the request carries the same value, as an x-stats-key header or ?key=. Without it the response is
+// a plain 404. It used to be open, so anyone could read what other visitors had typed.
+
+function authorised(request, url) {
+  const expected = process.env.STATS_KEY || "";
+  if (expected.length < 16) return false;   // unset or too short to be a real secret: stay closed
+  const given = request.headers.get("x-stats-key") || url.searchParams.get("key") || "";
+  if (given.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < given.length; i++) diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
 
 export default async (request) => {
   const headers = { "content-type": "application/json", "cache-control": "no-store" };
   const url = new URL(request.url);
+  if (!authorised(request, url)) return new Response("Not found", { status: 404, headers: { "content-type": "text/plain", "cache-control": "no-store" } });
   const days = Math.min(Math.max(parseInt(url.searchParams.get("days"), 10) || 14, 1), 90);
 
   try {

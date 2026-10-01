@@ -85,7 +85,7 @@ revisit it before adding more large sources.
 | When | What | Why |
 |---|---|---|
 | Daily, automatic | 05:17 UTC ingestion | keeps every index fresh |
-| Weekly, 5 min | check the latest Actions run is green; skim `/.netlify/functions/stats?days=7` | catches a source that died quietly |
+| Weekly, 5 min | check the latest Actions run is green; skim `/.netlify/functions/stats?days=7&key=<STATS_KEY>` | catches a source that died quietly |
 | **~8 November** | **rotate `SAM_API_KEY`** (expires ~14 Nov) | key rotation is the most predictable outage you will have |
 | Monthly, 15 min | read the telemetry top-misses list; add dictionary entries | the only demand signal you get |
 | Quarterly | re-run `node ingest/verify.mjs` locally | confirms sources still behave outside CI |
@@ -126,7 +126,7 @@ Then fix what that exposes, which is probably one of:
 
 ## 2.2 Telemetry-driven dictionary work
 
-Once real visitors arrive, `/.netlify/functions/stats?days=30` returns match rate, empty rate and
+Once real visitors arrive, `/.netlify/functions/stats?days=30` (private: add `&key=` with the `STATS_KEY` value set in Netlify) returns match rate, empty rate and
 the top unmatched search terms. That list is your queue. Add entries, redeploy, watch the match rate.
 
 Read it carefully: **high match rate + high empty rate is not a bug.** It means the codes are right

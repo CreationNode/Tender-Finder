@@ -63,7 +63,7 @@ ingested for it.
 | **TED** | EU/EEA, above-threshold | none | CPV codes (precise) | EU reuse policy | live |
 | **BOAMP** | France, **incl. below-threshold** | none | Text search (`objet`) | Licence Ouverte (Etalab) | live |
 | **SAM** | US federal | **API key** (ingest only) | daily bulk CSV -> index | US public domain | cached |
-| **CANADA** | Canada federal | none | daily open CSV -> index | Open Government Licence - Canada | cached |
+| **CANADA** | Canada federal | none | daily open CSV -> index | Open Government Licence - Canada | blocked (HTTP 403 from our runners); not searched |
 | **PROZORRO** | Ukraine | none | incremental feed crawl -> index | Open data (Prozorro) | cached |
 | **UK-FTS** | UK above-threshold | none | OCDS release packages -> index | OGL v3 | cached |
 | **UK-CF** | UK **below-threshold** | none | v2 search API, all open notices in one request -> index | OGL v3 | cached |
@@ -78,6 +78,7 @@ ingested for it.
 Sources declare which countries they cover, so a US search never spends latency on TED and a French
 search never calls SAM.gov. The coverage line under the results says which portals answered, which
 were out of scope, and which are unavailable — the tool never implies it searched everywhere.
+Operators, reuse terms and how each source is accessed are listed in [SOURCES.md](SOURCES.md).
 
 ## Two kinds of source: live and cached
 
@@ -364,7 +365,9 @@ run of 6+ digits are discarded outright, and everything is truncated to 60 chara
 - Per-request metrics appear in the Netlify function logs (search for `SEARCH_METRIC`).
 - Aggregates, if Netlify Blobs is available, are readable at `/.netlify/functions/stats?days=30`,
   which returns match rate, empty rate, and the top unmatched terms — your working list of
-  dictionary entries to add.
+  dictionary entries to add. The endpoint is private: set a `STATS_KEY` environment variable (16+
+  characters) in Netlify and send it as an `x-stats-key` header or `?key=`; without it the endpoint
+  returns 404.
 
 Interpreting it: a high **match rate** with a high **empty rate** means the codes are right and
 nobody is buying that thing right now. That is not a bug, and it is the distinction that stops you
