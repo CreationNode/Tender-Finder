@@ -6,14 +6,13 @@
 // access-ethics section of HANDOFF.md). Keep it light: one run a day, honest agent, link back.
 //
 // The feed (sindicación 643: every buyer profile hosted on PLACSP, including below-threshold
-// contracts) is a CHANGE LOG, newest first, ~127 entries and ~4 MB per page, with a rel="next" link
+// contracts) is a CHANGE LOG, newest first; the head page is partial (~4 MB) and full pages are ~15 MB, with a rel="next" link
 // to the previous page in time. Each entry is the latest state of one contract folder at that
 // moment, in CODICE XML, and carries CPV codes, the submission deadline, buyer and budget.
 //
 // Each run:
 //   1. reads from the head until it reaches the newest entry seen last run (incremental), then
-//   2. continues a one-off backfill towards PLACSP_BACKFILL_DAYS ago, within a page budget, so a
-//      cold start fills over a few days instead of downloading hundreds of MB at once.
+//   2. continues a one-off backfill towards PLACSP_BACKFILL_DAYS ago, within the time budget.
 // Within a run the first (newest) entry seen for a folder wins. Only status PUB (open for bids)
 // is kept; any later status (EV, ADJ, RES, ANUL) removes the row. Deleted entries are honoured.
 
@@ -66,9 +65,16 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
   const maxPages = Number(process.env.PLACSP_MAX_PAGES || 40);
   // Wall-clock cap so one slow portal can never eat the whole job (the first live run hung for 30
   // minutes). Pages already read are kept; the backfill cursor resumes next run.
-  const budgetMs = Number(process.env.PLACSP_BUDGET_MS || 10 * 60 * 1000);
+  const budgetMs = Number(process.env.PLACSP_BUDGET_MS || 15 * 60 * 1000);
+  // MEASURED from GitHub runners (2026-10-01): the server sends ~130 KB/s per connection and older
+  // feed pages are ~15 MB, so one page takes ~115 s. A 90 s deadline cut every page off mid-body.
+  // We stay on one connection at a time rather than parallelising around what looks like a cap.
+  const pageTimeoutMs = Number(process.env.PLACSP_PAGE_TIMEOUT_MS || 240 * 1000);
   const startedAt = Date.now();
-  const backfillDays = Number(process.env.PLACSP_BACKFILL_DAYS || 45);
+  // At ~8 pages a run the head alone keeps the index current, and every new open tender passes
+  // through the head, so coverage converges within one bidding window (2 to 4 weeks) even without a
+  // backfill. The short backfill only speeds up the first days.
+  const backfillDays = Number(process.env.PLACSP_BACKFILL_DAYS || 14);
   const today = new Date().toISOString().slice(0, 10);
   const backfillUntil = previousState.backfillUntil ||
     new Date(Date.now() - backfillDays * 864e5).toISOString();
@@ -88,7 +94,7 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
       if (Date.now() - startedAt > budgetMs) { notes.push(`time budget reached after ${pages} page(s)`); return url; }
       let res;
       try {
-        res = await fetchImpl(url, { headers: { accept: "application/atom+xml" } });
+        res = await fetchImpl(url, { headers: { accept: "application/atom+xml" }, timeoutMs: pageTimeoutMs, retries: 0 });
       } catch (err) {
         if (pages === 0) throw err;
         notes.push(`${err.message.split(" reading ")[0]} after ${pages} page(s)`);
