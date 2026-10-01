@@ -101,8 +101,17 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
     return body;
   }
 
-  // Page 1 tells us how many pages exist; a failure here is a real outage, so it throws.
-  const first = await page(1);
+  // Page 1 tells us how many pages exist, so a failure here fails the source. A dropped connection
+  // ("fetch failed") is retried twice after a pause; an HTTP error is a real answer and throws at once.
+  let first;
+  for (let attempt = 0; ; attempt++) {
+    try { first = await page(1); break; }
+    catch (err) {
+      if (/^HTTP \d/.test(err.message) || attempt >= 2) throw err;
+      log(`PNCP: page 1 failed (${err.message}); retrying in 30 s`);
+      await sleep(30000);
+    }
+  }
   const totalPages = Number(first.totalPaginas) || 1;
   log(`PNCP: ${first.totalRegistros} open procurements across ${totalPages} pages (closing by ${dataFinal})`);
 
