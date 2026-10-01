@@ -1,0 +1,49 @@
+name: Build the full CPV list (temporary)
+on:
+  push:
+    branches: [cpv-full-list]
+permissions:
+  contents: write
+jobs:
+  build:
+    if: "!contains(github.event.head_commit.message, 'cpv-full.json')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Find the official CPV 2008 download
+        run: |
+          UA="WhatTheyBuy/1.0 (CPV import; +https://whattheybuy.org)"
+          for page in https://simap.ted.europa.eu/web/simap/cpv https://simap.ted.europa.eu/cpv https://ted.europa.eu/en/simap/cpv; do
+            echo "== $page"
+            curl -sSL -A "$UA" --max-time 30 "$page" -o page.html -w '%{http_code}\n' || true
+            grep -oiE 'href="[^"]*(cpv|CPV)[^"]*"' page.html | sort -u | head -40 || true
+          done
+          rm -f page.html
+      - name: Build
+        run: |
+          UA="WhatTheyBuy/1.0 (CPV import; +https://whattheybuy.org)"
+          for u in \
+            "https://simap.ted.europa.eu/documents/10184/36234/cpv_2008_xml.zip" \
+            "https://simap.ted.europa.eu/documents/10184/36234/cpv_2008_csv.zip" \
+            "https://ted.europa.eu/documents/d/ted/cpv_2008_xml" \
+            "https://ted.europa.eu/documents/d/ted/cpv_2008_csv"; do
+            echo "== $u"
+            if curl -sSL -A "$UA" --max-time 60 -f "$u" -o cpv.zip; then
+              file cpv.zip; ls -l cpv.zip
+              if node tools/build-cpv-list.mjs cpv.zip; then echo "BUILT from $u"; break; fi
+            fi
+          done
+          rm -f cpv.zip
+          test -f data/cpv-full.json
+          node -e 'const d=require("./data/cpv-full.json");console.log(Object.keys(d), d.codes.length, JSON.stringify(d.codes.slice(0,3)))'
+          node tools/rank-test.mjs | tail -20
+      - name: Commit
+        run: |
+          git config user.name "CreationNode"
+          git config user.email "313583712+CreationNode@users.noreply.github.com"
+          git add data/cpv-full.json
+          git commit -m "Add data/cpv-full.json, built from the official EU CPV 2008 file"
+          git push origin HEAD:cpv-full-list
