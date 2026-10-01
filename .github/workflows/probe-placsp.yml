@@ -11,11 +11,11 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
       - run: |
-          PLACSP_MAX_PAGES=6 node -e '
+          PLACSP_MAX_PAGES=6 node --input-type=module -e '
           const { ingest } = await import("./ingest/sources/placsp.mjs");
           const t0 = Date.now();
           const r = await ingest({ log: console.log });
           console.log("secs", (Date.now()-t0)/1000, "rows", r.rows.length, "MB", (JSON.stringify(r.rows).length/1e6).toFixed(2), r.notes, {...r.state, seen: r.state.seen?.length});
           for (const row of r.rows.slice(0, 8)) console.log(JSON.stringify(row));
           console.log("no deadline", r.rows.filter(x=>!x[4]).length, "no buyer", r.rows.filter(x=>!x[2]).length, "no cpv", r.rows.filter(x=>!/CPV/.test(x[6])).length);
-          ' --input-type=module
+          '
