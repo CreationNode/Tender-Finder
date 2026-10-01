@@ -5,21 +5,19 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
+      - uses: actions/checkout@v4
+        with: { ref: germany-norway }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
       - env:
           DOFFIN_API_KEY: ${{ secrets.DOFFIN_API_KEY }}
         run: |
           set +e
-          UA="Mozilla/5.0 (compatible; OpenTenderFinder/1.0; public-interest tender search; +https://github.com/tender-finder)"
-          [ -n "$DOFFIN_API_KEY" ] && echo "key present (${#DOFFIN_API_KEY} chars)" || echo "NO KEY"
-          echo "=== robots"; curl -sS --max-time 20 -A "$UA" https://api.doffin.no/robots.txt | head -5; curl -sS --max-time 20 -A "$UA" https://doffin.no/robots.txt | head -10
-          B=https://api.doffin.no/public/v2
-          get() { echo; echo "=== $1"; curl -sS --max-time 40 -A "$UA" -H "Ocp-Apim-Subscription-Key: $DOFFIN_API_KEY" -H "Accept: application/json" "$B/$1" -o /tmp/r -D /tmp/h -w "HTTP %{http_code} bytes=%{size_download} type=%{content_type}\n"; grep -iE '^(x-ratelimit|retry-after|ratelimit)' /tmp/h; head -c ${2:-1500} /tmp/r; echo; sleep 2; }
-          get "search?numHitsPerPage=3&page=1" 6000
-          get "search?numHitsPerPage=3&page=1&status=ACTIVE" 1200
-          get "search?numHitsPerPage=3&page=1&type=COMPETITION&status=ACTIVE&sortBy=PUBLICATION_DATE_DESC" 1200
-          get "search" 600
-          id=$(jq -r '(.hits // .notices // .results // [])[0] | (.id // .doffinId // .noticeId // empty)' /tmp/r 2>/dev/null); echo "first id: $id"
-          get "search?numHitsPerPage=100&page=1&status=ACTIVE" 300
-          jq -c 'del(.hits) | del(.results)' /tmp/r 2>/dev/null | head -c 800; echo
+          time node ingest/run.mjs doffin
+          jq -c '{count, notes}' data/index/doffin.json
+          jq -c '.rows[:3][]' data/index/doffin.json
+          jq -c '[.rows[] | select(.[6] | test("CPV"))] | length' data/index/doffin.json
+          jq -r '[.rows[] | .[4]] | sort | .[0], .[-1]' data/index/doffin.json
+          curl -sS -o /dev/null -w "link %{http_code}\n" -L "$(jq -r '.rows[0][7]' data/index/doffin.json)"
