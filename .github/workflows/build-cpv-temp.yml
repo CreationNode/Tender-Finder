@@ -25,20 +25,14 @@ jobs:
       - name: Build
         run: |
           UA="WhatTheyBuy/1.0 (CPV import; +https://whattheybuy.org)"
-          for u in \
-            "https://simap.ted.europa.eu/documents/10184/36234/cpv_2008_xml.zip" \
-            "https://simap.ted.europa.eu/documents/10184/36234/cpv_2008_csv.zip" \
-            "https://ted.europa.eu/documents/d/ted/cpv_2008_xml" \
-            "https://ted.europa.eu/documents/d/ted/cpv_2008_csv"; do
-            echo "== $u"
-            if curl -sSL -A "$UA" --max-time 60 -f "$u" -o cpv.zip; then
-              file cpv.zip; ls -l cpv.zip
-              if node tools/build-cpv-list.mjs cpv.zip; then echo "BUILT from $u"; break; fi
-            fi
-          done
-          rm -f cpv.zip
-          test -f data/cpv-full.json
-          node -e 'const d=require("./data/cpv-full.json");console.log(Object.keys(d), d.codes.length, JSON.stringify(d.codes.slice(0,3)))'
+          curl -sSL -A "$UA" --max-time 60 -f "https://ted.europa.eu/documents/d/ted/cpv_2008_xml" -o cpv.zip
+          sha256sum cpv.zip
+          7z x -y -ocpv cpv.zip >/dev/null
+          ls -l cpv
+          node tools/build-cpv-list.mjs cpv/cpv_2008.xml
+          rm -rf cpv cpv.zip
+          node -e 'const d=require("./data/cpv-full.json");console.log(Object.keys(d), d.codes.length, JSON.stringify(d.codes.slice(0,3)), JSON.stringify(d.codes.find(c=>c[0].startsWith("35811"))))'
+          ls -l data/cpv-full.json
           node tools/rank-test.mjs | tail -20
       - name: Commit
         run: |
