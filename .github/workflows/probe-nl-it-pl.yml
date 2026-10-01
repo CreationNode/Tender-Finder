@@ -21,6 +21,7 @@ jobs:
             echo "== $s"; ls -la data/index/$s.json
             jq -c '{count, notes}' data/index/$s.json
             jq -c '[.rows[] | select(.[6] != "")] | length' data/index/$s.json
+            jq -c '[.rows[] | .[5]] | group_by(.) | map({(.[0]): length}) | add' data/index/$s.json
             jq -c '.rows[:3][]' data/index/$s.json
             jq -r '[.rows[] | .[4]] | sort | .[0], .[-1]' data/index/$s.json
           done
