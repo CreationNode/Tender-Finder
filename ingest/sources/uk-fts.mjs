@@ -46,8 +46,8 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
   const startUrl = `${API}?updatedFrom=${encodeURIComponent(updatedFrom)}&updatedTo=${encodeURIComponent(runAt)}&limit=100`;
   log(`FTS: crawling from ${updatedFrom}`);
 
-  const { pages, notes } = await crawlOcds({
-    startUrl, fetchImpl, maxPages, budgetMs, log,
+  const { pages, notes, complete, lastDate, ordered } = await crawlOcds({
+    startUrl, fetchImpl, maxPages, budgetMs, log, pageSize: 100,
     onPage: (releases) => {
       for (const r of releases) {
         seen++;
@@ -86,17 +86,28 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
   }
   if (repairTried) log(`FTS: repaired ${repaired} of ${repairTried} old notice links`);
 
-  // Prune anything whose deadline has passed since the last run.
-  let expired = 0;
+  // Prune anything whose deadline has passed since the last run, and undated notices (mostly
+  // planning notices) once they are old: without a deadline nothing else ever removed them.
+  const undatedCutoff = new Date(runStartedMs - Number(process.env.FTS_UNDATED_MAX_DAYS || 120) * 864e5).toISOString().slice(0, 10);
+  let expired = 0, undatedOld = 0;
   for (const [id, row] of byId) {
     if (row[4] && row[4] < today) { byId.delete(id); expired++; }
+    else if (!row[4] && row[5] && row[5] < undatedCutoff) { byId.delete(id); undatedOld++; }
+  }
+
+  // Move the cursor only as far as the crawl actually read. It used to jump to the run time even when
+  // the page budget cut the crawl short, so every release past the cut was skipped for good.
+  let updatedTo = runAt;
+  if (!complete) {
+    updatedTo = ordered && lastDate ? lastDate.slice(0, 19) : (previousState.updatedTo || updatedFrom);
+    notes.push(`crawl incomplete; cursor held at ${updatedTo}`);
   }
 
   const rows = [...byId.values()];
   log(`FTS: ${pages} page(s), ${seen} releases -> ${kept} opportunities, ${history} award/contract skipped, ${expired} expired pruned; index ${rows.length}`);
   return {
     rows,
-    notes: [...notes, `pages ${pages}`, `releases ${seen}`, `opportunities ${kept}`, `history ${history}`, ...(repairTried ? [`links repaired ${repaired}/${repairTried}`] : [])],
-    state: { updatedTo: runAt, updatedAt: new Date().toISOString() },
+    notes: [...notes, ...(undatedOld ? [`undated older than cutoff dropped ${undatedOld}`] : []), `pages ${pages}`, `releases ${seen}`, `opportunities ${kept}`, `history ${history}`, ...(repairTried ? [`links repaired ${repaired}/${repairTried}`] : [])],
+    state: { updatedTo, updatedAt: new Date().toISOString() },
   };
 }

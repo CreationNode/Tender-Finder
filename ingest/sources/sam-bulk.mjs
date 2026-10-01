@@ -19,6 +19,10 @@ export const label = "SAM.gov (US federal)";
 const DEFAULT_URL =
   "https://sam.gov/api/prod/fileextractservices/v1/api/download/Contract%20Opportunities/datagov/ContractOpportunitiesFullCSV.csv?privacy=Public";
 
+// Notice types that are not an invitation to bid.
+const NOT_BIDDABLE = /award|justification|sources sought|special notice|sale of surplus|intent to bundle|consolidate/i;
+const UNDATED_MAX_DAYS = Number(process.env.SAM_UNDATED_MAX_DAYS || 90);
+
 /** SAM CSVs have used several header spellings over the years; accept any of them. */
 function pick(row, ...names) {
   for (const n of names) {
@@ -116,38 +120,72 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log } = {}
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const rows = [];
+  // A notice with no response date (most presolicitations) is kept while it is recent; after this
+  // many days it is assumed stale rather than shown as open forever.
+  const undatedCutoff = new Date(Date.now() - UNDATED_MAX_DAYS * 864e5).toISOString().slice(0, 10);
+  const bySolicitation = new Map();
   let scanned = 0;
   let closed = 0;
   let inactive = 0;
+  let notBiddable = 0;
+  let undatedOld = 0;
+  let merged = 0;
 
   for await (const r of streamCsvRows(res)) {
     scanned++;
     const active = pick(r, "Active").toLowerCase();
     if (active === "no") { inactive++; continue; }
 
-    const deadline = parseDate(pick(r, "ResponseDeadLine", "Response Deadline", "ArchiveDate"));
-    if (deadline && deadline < today) { closed++; continue; }   // only open notices are opportunities
+    // Award notices, justifications (J&A), sources sought and special notices are not invitations to
+    // bid; they made up a large share of the old index and read as open tenders.
+    const type = pick(r, "Type", "BaseType");
+    if (NOT_BIDDABLE.test(type)) { notBiddable++; continue; }
+
+    // Only the response deadline counts. ArchiveDate is when SAM hides the notice, often weeks after
+    // bids close, and using it showed closed solicitations as open.
+    const deadline = parseDate(pick(r, "ResponseDeadLine", "Response Deadline"));
+    const published = parseDate(pick(r, "PostedDate", "Posted Date"));
 
     const noticeId = pick(r, "NoticeId", "Notice Id");
     const psc = pick(r, "ClassificationCode", "Classification Code", "PSC");
     const naics = pick(r, "NaicsCode", "Naics Code", "NAICS");
+    const buyer = pick(r, "Department/Ind.Agency", "Department", "FullParentPathName", "Sub-Tier");
 
-    rows.push(toRow({
+    const row = toRow({
       id: noticeId ? `SAM-${noticeId}` : "",
       title: pick(r, "Title"),
-      buyer: pick(r, "Department/Ind.Agency", "Department", "FullParentPathName", "Sub-Tier"),
+      buyer,
       country: "USA",
       deadline,
-      published: parseDate(pick(r, "PostedDate", "Posted Date")),
+      published,
       codes: [psc && `PSC ${psc}`, naics && `NAICS ${naics}`].filter(Boolean).join(" · "),
       link: pick(r, "Link", "UiLink") || (noticeId ? `https://sam.gov/opp/${noticeId}/view` : "https://sam.gov/search/"),
-    }));
+    });
+
+    // Every amendment of a solicitation is its own row in the extract, with its own NoticeId. Keep
+    // one row per solicitation number (per buyer, since numbers are only unique within an agency):
+    // the most recently posted one, which carries the current deadline. The open/closed check runs
+    // after this, on that latest version, so an old amendment can't keep a closed solicitation alive.
+    const sol = pick(r, "Sol#", "Solicitation Number", "SolicitationNumber").toUpperCase();
+    const key = sol ? `${buyer.toLowerCase()}|${sol}` : `id|${noticeId || scanned}`;
+    const prev = bySolicitation.get(key);
+    if (!prev || (published || "") >= (prev.published || "")) bySolicitation.set(key, { row, published, deadline });
+    else merged++;
+    if (prev && (published || "") >= (prev.published || "")) merged++;
   }
 
-  log(`SAM: scanned ${scanned} rows -> kept ${rows.length} open (${closed} closed, ${inactive} inactive)`);
+  const rows = [];
+  for (const { row, published, deadline } of bySolicitation.values()) {
+    if (deadline && deadline < today) { closed++; continue; }   // only open notices are opportunities
+    if (!deadline && published && published < undatedCutoff) { undatedOld++; continue; }
+    rows.push(row);
+  }
+  log(`SAM: scanned ${scanned} rows -> kept ${rows.length} open (${closed} closed, ${inactive} inactive, ` +
+      `${notBiddable} not invitations to bid, ${undatedOld} undated and old, ${merged} older amendments merged)`);
   return {
     rows,
-    notes: [`scanned ${scanned}`, `closed dropped ${closed}`, `inactive dropped ${inactive}`],
+    notes: [`scanned ${scanned}`, `closed dropped ${closed}`, `inactive dropped ${inactive}`,
+            `not biddable dropped ${notBiddable}`, `undated older than ${UNDATED_MAX_DAYS} days dropped ${undatedOld}`,
+            `amendments merged ${merged}`],
   };
 }

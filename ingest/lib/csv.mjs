@@ -6,7 +6,21 @@
 
 export async function* streamCsvRows(response, { delimiter = "," } = {}) {
   const reader = response.body.getReader();
-  const decoder = new TextDecoder("utf-8");
+  // SAM's extract has been published as Windows-1252, not UTF-8, so a plain UTF-8 decode turned every
+  // accented buyer name and curly quote into U+FFFD. Decode strictly as UTF-8 and, at the first
+  // invalid byte, switch to Windows-1252 for the rest of the file (re-decoding that chunk). A valid
+  // UTF-8 file never trips the switch.
+  let decoder = new TextDecoder("utf-8", { fatal: true });
+  let fallback = false;
+  const decode = (value, stream) => {
+    if (fallback) return decoder.decode(value, { stream });
+    try { return decoder.decode(value, { stream }); }
+    catch {
+      fallback = true;
+      decoder = new TextDecoder("windows-1252");
+      return decoder.decode(value, { stream });
+    }
+  };
 
   let buffer = "";
   let header = null;
@@ -50,7 +64,7 @@ export async function* streamCsvRows(response, { delimiter = "," } = {}) {
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    buffer = decoder.decode(value, { stream: true });
+    buffer = decode(value, true);
     consume(buffer);
     while (emit.length) {
       const cells = emit.shift();
@@ -60,6 +74,12 @@ export async function* streamCsvRows(response, { delimiter = "," } = {}) {
     }
   }
 
+  consume(decode(undefined, false));   // bytes a multi-byte character left in the decoder
+  for (const cells of emit.splice(0)) {
+    if (!header) { header = cells.map((h) => h.trim()); continue; }
+    if (cells.length === 1 && cells[0] === "") continue;
+    yield rowToObject(header, cells);
+  }
   // flush the final line if the file does not end with a newline
   if (field.length || row.length) {
     const cells = finishRow();

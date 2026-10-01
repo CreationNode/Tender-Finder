@@ -192,12 +192,13 @@ function extractBuyer(text) {
 // of the parsing, and it has one serious consequence: without deadlines these notices can never be
 // pruned when they expire, so the index would accumulate dead tenders indefinitely.
 //
-// The honest mitigation is an age-based expiry: an Australian ATM is rarely open for more than a
-// few months, so notices are dropped once their PUBLICATION date passes a configurable age. That is
+// The honest mitigation is an age-based expiry: most Australian ATMs close three to five weeks after
+// publication, so notices are dropped once their PUBLICATION date passes a configurable age (35
+// days; it was 90, which kept two months of closed tenders on show as open). That is
 // an assumption, clearly labelled as one — the alternative (fetching each ATM detail page for a real
 // closing date) means parsing HTML for 89+ notices per run, which is fragile and a heavier
 // imposition on the site than reading its own feed.
-const MAX_AGE_DAYS = Number(process.env.AUSTENDER_MAX_AGE_DAYS || 90);
+const MAX_AGE_DAYS = Number(process.env.AUSTENDER_MAX_AGE_DAYS || 35);
 
 export async function ingest({ fetchImpl = politeFetch, log = console.log } = {}) {
   const { url, how, fallbacks } = await discoverFeedUrl(fetchImpl, log);

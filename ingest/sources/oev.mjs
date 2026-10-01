@@ -87,7 +87,7 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
 
   const window = Array.from({ length: lookbackDays }, (_, i) => dayOf(startedAt - (i + 1) * 864e5));
   const done = new Set((previousState.doneDays || []).filter((d) => window.includes(d)));
-  let unavailable = 0;
+  let unavailable = 0, badZips = 0;
   const read = [];   // [day, parsed[]], newest first
   for (const day of window) {
     if (done.has(day)) continue;
@@ -108,10 +108,18 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
       notes.push(`stopped at ${day}: HTTP ${res.status}`); break;
     }
     const parsed = [];
-    for (const f of unzip(res.bytes)) {
-      if (!f.name.endsWith(".xml")) continue;
-      const n = parseNotice(f.data.toString("utf8"));
-      if (n) { parsed.push({ ...n, version: f.name }); notices++; }
+    try {
+      for (const f of unzip(res.bytes)) {
+        if (!f.name.endsWith(".xml")) continue;
+        const n = parseNotice(f.data.toString("utf8"));
+        if (n) { parsed.push({ ...n, version: f.name }); notices++; }
+      }
+    } catch (err) {
+      // One corrupt or truncated export used to abort the whole source. Leave that day unread (it is
+      // retried next run) and carry on with the others.
+      badZips++;
+      notes.push(`${day}: export unreadable (${err.message}); retried next run`);
+      continue;
     }
     read.push([day, parsed]);
     done.add(day);
@@ -133,6 +141,7 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
     }
   }
 
+  if (!read.length && badZips && badZips + unavailable === requests) throw new Error(`oeffentlichevergabe.de: none of ${requests} day export(s) could be read`);
   if (!read.length && unavailable && unavailable === requests) throw new Error(`oeffentlichevergabe.de had no export for any of ${requests} day(s)`);
   if (unavailable) notes.push(`${unavailable} day export(s) not available yet`);
 

@@ -105,11 +105,16 @@ function findNextLink(pkg) {
   return null;
 }
 
-export async function crawlOcds({ startUrl, fetchImpl, maxPages, budgetMs, onPage, log }) {
+// Returns `complete` only when the feed itself ran out (an empty or short page), so a caller can tell
+// "read everything up to now" from "stopped at the page or time budget" and not move its cursor past
+// releases it never read. `lastDate` is the newest release date seen and `ordered` says whether the
+// dates arrived in ascending order, which is what makes `lastDate` safe to resume from.
+export async function crawlOcds({ startUrl, fetchImpl, maxPages, budgetMs, onPage, log, pageSize = 0 }) {
   const startedAt = Date.now();
   let url = startUrl;
   let pages = 0;
   const notes = [];
+  let complete = false, lastDate = "", ordered = true;
 
   while (url && pages < maxPages && Date.now() - startedAt < budgetMs) {
     const res = await fetchImpl(url, { headers: { accept: "application/json" } });
@@ -123,11 +128,18 @@ export async function crawlOcds({ startUrl, fetchImpl, maxPages, budgetMs, onPag
     const releases = pkg.releases || [];
     onPage(releases, pkg);
     pages++;
+    for (const r of releases) {
+      const d = String(r.date || "");
+      if (!d) continue;
+      if (d < lastDate) ordered = false;
+      else lastDate = d;
+    }
 
-    if (!releases.length) { notes.push("stopped: empty page"); break; }
+    if (!releases.length) { notes.push("stopped: empty page"); complete = true; break; }
 
     const next = findNextLink(pkg);
     if (!next) {
+      if (pageSize && releases.length < pageSize) { complete = true; break; }
       // Diagnostic, not silence: tell us where to look next time.
       const linkKeys = Object.keys(pkg.links || {});
       const topKeys = Object.keys(pkg).filter((k) => /link|next|page|cursor/i.test(k));
@@ -141,5 +153,6 @@ export async function crawlOcds({ startUrl, fetchImpl, maxPages, budgetMs, onPag
     url = next;
     if (log && pages % 5 === 0) log(`  …${pages} pages`);
   }
-  return { pages, notes };
+  if (!complete && url && (pages >= maxPages || Date.now() - startedAt >= budgetMs)) notes.push(`stopped at the ${pages >= maxPages ? "page" : "time"} budget after ${pages} page(s)`);
+  return { pages, notes, complete, lastDate, ordered };
 }
