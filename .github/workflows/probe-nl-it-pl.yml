@@ -5,25 +5,20 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
+      - uses: actions/checkout@v4
+        with: { ref: netherlands-poland }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
       - run: |
-          UA="Mozilla/5.0 (compatible; OpenTenderFinder/1.0; public-interest tender search; +https://github.com/tender-finder)"
-          get() { echo; echo "=== $1"; curl -sS -L --max-time 40 -A "$UA" -H "Accept: application/json, application/xml;q=0.9, */*;q=0.5" --compressed -D /tmp/h -o /tmp/b -w "HTTP %{http_code} size=%{size_download} type=%{content_type} t=%{time_total}s\n" "$1" || echo FAIL; grep -iE '^(x-ratelimit|retry-after|server|link):' /tmp/h || true; head -c ${2:-1500} /tmp/b; echo; sleep 2; }
-          T=https://www.tenderned.nl/papi/tenderned-rs-tns
-          get "$T/v2/publicaties/442477" 4000
-          get "$T/v3/api-docs" 3000
-          get "$T/v2/api-docs" 1500
-          get "https://www.tenderned.nl/info/swagger/" 1500
-          get "$T/v2/publicaties?page=0&size=2&publicatieType=AAO&publicatieDatumVanaf=2026-09-01" 600
-          B="https://ezamowienia.gov.pl/mo-board/api/v1/notice?NoticeType=ContractNotice&PublicationDateFrom=2026-09-01T00:00:00&PublicationDateTo=2026-10-01T23:59:59"
-          curl -sS --max-time 60 -A "$UA" "$B&PageSize=500&PageNumber=1" -o /tmp/p1; jq 'length' /tmp/p1; jq -c '.[-1] | {publicationDate, noticeNumber, objectId, submittingOffersDate}' /tmp/p1; jq -c '.[0] | keys' /tmp/p1
-          sleep 2; curl -sS --max-time 60 -A "$UA" "$B&PageSize=500&PageNumber=2" -o /tmp/p2; jq 'length' /tmp/p2; jq -c '.[0] | {publicationDate, noticeNumber}' /tmp/p2
-          sleep 2; curl -sS --max-time 60 -A "$UA" "$B&PageSize=2000&PageNumber=1" -o /tmp/p3 -w "%{http_code} %{size_download}\n"; jq 'length' /tmp/p3 || head -c 400 /tmp/p3
-          sleep 2; curl -sS --max-time 60 -A "$UA" "$B&PageSize=50&SearchAfter=x" -o /tmp/p4 -w "%{http_code}\n"; head -c 400 /tmp/p4; echo
-          get "https://ezamowienia.gov.pl/mo-board/api/v1/notice/stats" 600
-          P=https://pubblicitalegale.anticorruzione.it
-          get "$P/api/v0/v3/api-docs" 1500
-          get "$P/v3/api-docs" 1500
-          get "$P/api/v0/swagger-ui/index.html" 600
-          get "$P/api/v0/avvisi-full-text-specializzata?page=0&pageSize=2&tipologia=BANDO&sortField=dataPubblicazione&sortDirection=desc" 2500
+          time node ingest/run.mjs tenderned || true
+          time node ingest/run.mjs bzp || true
+          for s in tenderned bzp; do
+            echo "== $s"; ls -la data/index/$s.json
+            jq -c '{count, notes}' data/index/$s.json
+            jq -c '[.rows[] | select(.[6] != "")] | length' data/index/$s.json
+            jq -c '.rows[:3][]' data/index/$s.json
+            jq -r '[.rows[] | .[4]] | sort | .[0], .[-1]' data/index/$s.json
+          done
+          curl -sS -o /dev/null -w "BZP link %{http_code}\n" -A "OpenTenderFinder" "$(jq -r '.rows[0][7]' data/index/bzp.json)"
