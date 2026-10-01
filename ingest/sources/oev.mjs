@@ -11,8 +11,8 @@
 // (de-uvgo, de-vob, de-hhr ...: about 35 that day) are kept, so Dutch-style double listings are
 // avoided. Set OEV_INCLUDE_EU=1 to keep everything. robots.txt does not exist (the site answers 404).
 //
-// Each run reads today and yesterday plus any unread day in the last OEV_LOOKBACK_DAYS (default 45),
-// within OEV_BUDGET_MS. Notices are keyed by contract folder, applied oldest first, so a later
+// An export exists only for finished days (today's answers HTTP 400), so each run reads every unread
+// day from yesterday back over OEV_LOOKBACK_DAYS (default 45), within OEV_BUDGET_MS. Notices are keyed by contract folder, applied oldest first, so a later
 // result or cancellation notice removes the call for competition.
 
 import { toRow } from "../lib/index-format.mjs";
@@ -85,8 +85,9 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
   const notes = [];
   let requests = 0, notices = 0, calls = 0, skippedEu = 0, closed = 0;
 
-  const window = Array.from({ length: lookbackDays }, (_, i) => dayOf(startedAt - i * 864e5));
-  const done = new Set((previousState.doneDays || []).filter((d) => window.includes(d) && d < dayOf(startedAt - 864e5)));
+  const window = Array.from({ length: lookbackDays }, (_, i) => dayOf(startedAt - (i + 1) * 864e5));
+  const done = new Set((previousState.doneDays || []).filter((d) => window.includes(d)));
+  let unavailable = 0;
   const read = [];   // [day, parsed[]], newest first
   for (const day of window) {
     if (done.has(day)) continue;
@@ -99,7 +100,9 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
       if (!read.length) throw new Error(`oeffentlichevergabe.de: ${err.message.split(" reading ")[0]} for ${day}`);
       notes.push(`stopped at ${day}: ${err.message.split(" reading ")[0]}`); break;
     }
-    if (res.status === 404 || res.status === 204) { done.add(day); continue; }   // no export for that day
+    if (res.status === 204) { done.add(day); continue; }   // no notices that day
+    // Not published yet (the newest day can lag) or not offered: try again next run.
+    if (res.status === 400 || res.status === 404) { unavailable++; continue; }
     if (!res.ok) {
       if (!read.length) throw new Error(`oeffentlichevergabe.de returned HTTP ${res.status} for ${day}`);
       notes.push(`stopped at ${day}: HTTP ${res.status}`); break;
@@ -129,6 +132,9 @@ export async function ingest({ fetchImpl = fetchText, log = console.log, previou
       }
     }
   }
+
+  if (!read.length && unavailable && unavailable === requests) throw new Error(`oeffentlichevergabe.de had no export for any of ${requests} day(s)`);
+  if (unavailable) notes.push(`${unavailable} day export(s) not available yet`);
 
   let expired = 0;
   for (const [id, row] of byId) if (row[4] < today) { byId.delete(id); expired++; }
