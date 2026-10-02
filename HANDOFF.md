@@ -153,6 +153,7 @@ assets/fonts/                  Self-hosted fonts and their SIL OFL licences.
 assets/rank.mjs                Shared CPV ranker (see 2.3).
 data/cpv-map.json              Curated dictionary.
 data/cpv-full.json             Generated full vocabulary (committed 2026-10-01).
+data/added-on-request.json     Public "Added on request" ledger of trades added from suggestions.
 data/index/                    Local index output (README only in repo; real data lives on `indexes` branch).
 netlify.toml
 netlify/functions/search.js    Orchestrator.
@@ -370,3 +371,16 @@ the real SEO lever is a few genuinely useful static explainer pages per country)
   architectural problems plainly rather than working around them.
 - The code is MIT-licensed (owner's choice, 2026-10-01; see `LICENSE`). The licence covers the code and
   dictionary, not the tender data, which stays under each portal's own terms.
+
+
+## Trade suggestions (added 2026-10-02)
+
+The "Missing your trade?" form on the page is a Netlify Form named `suggest-trade` (fields `what`,
+`codes`; honeypot `company`). Form detection is switched on for the project. Submissions appear in
+Netlify under the project's Forms tab. Netlify records the sender's IP address with each submission,
+which the page says next to the form and in "What we keep".
+
+To act on one: add the trade to `data/cpv-map.json` (by hand; never let visitors edit the dictionary,
+since it decides what tenders people see), add a line to the top of `data/added-on-request.json`
+(`{"date":"YYYY-MM-DD","trade":"…","codes":["CPV …"]}`), then delete the submission in Netlify.
+The ledger section stays hidden while its list is empty.
