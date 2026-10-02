@@ -1,4 +1,12 @@
 {
   "_readme": "Trades added to data/cpv-map.json because a visitor suggested them. Newest first. Shown on the page under 'Added on request'; the section stays hidden while this list is empty.",
-  "items": []
+  "items": [
+    {
+      "date": "2026-10-02",
+      "trade": "Emergency training dolls",
+      "codes": [
+        "CPV 35112100"
+      ]
+    }
+  ]
 }

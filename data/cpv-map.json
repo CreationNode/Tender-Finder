@@ -93,6 +93,7 @@
     { "label": "Metal products and fabrication", "cpv": ["44300000", "44316000"], "psc": ["95"], "terms": ["metal", "steelwork", "fabrication", "welding", "castings", "fasteners"], "pt": ["estrutura metálica", "estruturas metálicas", "serralheria", "solda", "metalúrgica"] },
     { "label": "Signage and road furniture", "cpv": ["34992000", "34928400"], "psc": ["9905"], "terms": ["signs", "signage", "road signs", "bollards", "barriers", "street furniture"], "pt": ["sinalização viária", "placas de sinalização", "sinalização", "defensas", "balizadores"] },
     { "label": "Marine and boats", "cpv": ["34500000", "34522000"], "psc": ["1940"], "terms": ["boat", "boats", "vessel", "marine", "ship", "rib"], "pt": ["embarcação", "embarcações", "barco", "barcos", "lancha", "lanchas"] },
-    { "label": "Drones and unmanned systems", "cpv": ["34711200", "35613000"], "psc": ["1550"], "terms": ["drone", "drones", "uav", "unmanned", "rpas"], "pt": ["drone", "drones", "vant", "aeronave remotamente pilotada"] }
+    { "label": "Drones and unmanned systems", "cpv": ["34711200", "35613000"], "psc": ["1550"], "terms": ["drone", "drones", "uav", "unmanned", "rpas"], "pt": ["drone", "drones", "vant", "aeronave remotamente pilotada"] },
+    { "label": "Emergency training dolls (CPR manikins)", "cpv": ["35112100"], "psc": ["6910"], "terms": ["emergency training dolls", "training dolls", "cpr manikins", "cpr mannequins", "resuscitation manikins", "first aid manikins", "training manikins", "training mannequins"], "pt": ["manequim de treinamento", "manequins de treinamento", "manequim de rcp", "boneco de treinamento"] }
   ]
 }

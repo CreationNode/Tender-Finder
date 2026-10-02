@@ -325,7 +325,7 @@
 
   <section class="about" id="about">
     <div><h3>Why this exists</h3><p>Public contracts are open to anyone, but most small suppliers never see them because the notices are filed under codes they don't know. This is a free translation layer. No account, no cookies, no ads.</p></div>
-    <div><h3>What we keep</h3><p>We count searches. When a search matches nothing in our dictionary, or finds no open tenders, we keep the words typed (cut to 60 characters, and dropped if they look like an email address or a long number) so we can add the missing trade. We keep nothing that identifies you: no IP address, no cookies, no browser details. The one exception is the suggestion form below: our host records the sender's IP address with each message. Fonts are served from this site, and tender links take you straight to the official portal.</p></div>
+    <div><h3>What we keep</h3><p>We count searches. When a search matches nothing in our dictionary, or finds no open tenders, we keep the words typed (cut to 60 characters, and dropped if they look like an email address or a long number) so we can add the missing trade. We keep nothing that identifies you: no IP address, no cookies, no browser details. The one exception is the suggestion form below: our host records the sender's IP address and browser details with each message. Fonts are served from this site, and tender links take you straight to the official portal.</p></div>
     <div><h3>Read before you bid</h3><p>Closed notices are removed and each result links to its official notice. Australian notices have no deadline in the source feed, so we show them as undated rather than guess. Brazilian tenders usually ask foreign bidders to register locally (SICAF) or appoint a representative. Always confirm details on the official notice.</p></div>
     <div><h3>Improve it</h3><p>The word-to-code dictionary is one plain JSON file that we edit by hand. If your trade is missing, <a href="#suggest">suggest it below</a> or <a href="mailto:info@whattheybuy.org?subject=What%20They%20Buy">email us</a>. The code is MIT-licensed; each notice belongs to the portal that published it and is shown under that portal's terms (<a href="#sources">sources</a>).</p></div>
   </section>
@@ -343,7 +343,7 @@
         <input type="text" id="sg-codes" name="codes" maxlength="120" placeholder="e.g. CPV 31681410">
         <button type="submit">Send suggestion</button>
         <p class="sent" id="sg-sent" role="status"></p>
-        <p class="fine">No name or email needed. The form is handled by our host, Netlify, which also records the sender's IP address with each message; we delete suggestions once we have dealt with them.</p>
+        <p class="fine">No name or email needed. The form is handled by our host, Netlify, which also records the sender's IP address and browser details with each message; we delete suggestions once we have dealt with them.</p>
       </form>
     </div>
     <div id="requested" hidden>
