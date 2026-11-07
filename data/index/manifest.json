@@ -1,0 +1,192 @@
+{
+  "sources": {
+    "sam": {
+      "source": "SAM",
+      "label": "SAM.gov (US federal)",
+      "count": 7370,
+      "sizeKb": 1703,
+      "generatedAt": "2026-11-07T11:47:08.912Z",
+      "lastAttempt": "2026-11-07T11:47:08.912Z",
+      "lastError": null,
+      "notes": [
+        "scanned 71579",
+        "closed dropped 17653",
+        "inactive dropped 0",
+        "not biddable dropped 22865",
+        "undated older than 90 days dropped 539",
+        "amendments merged 23152"
+      ],
+      "canary": "7370 vs previous 6867"
+    },
+    "prozorro": {
+      "source": "PROZORRO",
+      "label": "Prozorro (Ukraine)",
+      "count": 20,
+      "sizeKb": 9,
+      "generatedAt": "2026-11-07T11:47:18.844Z",
+      "lastAttempt": "2026-11-07T11:47:18.844Z",
+      "lastError": null,
+      "notes": [
+        "pages 40",
+        "records 4000",
+        "kept 0",
+        "expired 2",
+        "advanced forward cursor"
+      ],
+      "canary": "20 vs previous 22"
+    },
+    "ukfts": {
+      "source": "UK-FTS",
+      "label": "Find a Tender (UK, above threshold)",
+      "count": 2477,
+      "sizeKb": 608,
+      "generatedAt": "2026-11-07T11:47:24.206Z",
+      "lastAttempt": "2026-11-07T11:47:24.206Z",
+      "lastError": null,
+      "notes": [
+        "pages 13",
+        "releases 1299",
+        "opportunities 325",
+        "history 974"
+      ],
+      "canary": "2477 vs previous 2434"
+    },
+    "ukcf": {
+      "source": "UK-CF",
+      "label": "Contracts Finder (UK, below threshold)",
+      "count": 496,
+      "sizeKb": 151,
+      "generatedAt": "2026-11-07T11:47:30.325Z",
+      "lastAttempt": "2026-11-07T11:47:30.325Z",
+      "lastError": null,
+      "notes": [
+        "returned 496",
+        "hit count 496",
+        "kept 496"
+      ],
+      "canary": "496 vs previous 498"
+    },
+    "austender": {
+      "source": "AUSTENDER",
+      "label": "AusTender (Australia federal)",
+      "count": 106,
+      "sizeKb": 22,
+      "generatedAt": "2026-11-07T11:47:32.103Z",
+      "lastAttempt": "2026-11-07T11:47:32.103Z",
+      "lastError": null,
+      "notes": [
+        "feed data.gov.au catalogue",
+        "url https://www.tenders.gov.au/public_data/rss/rss.xml",
+        "items 130",
+        "expired 0",
+        "aged-out 24",
+        "no closing dates in feed; retired after 35 days"
+      ],
+      "canary": "106 vs previous 102"
+    },
+    "pncp": {
+      "source": "PNCP",
+      "label": "PNCP (Brazil)",
+      "count": 29735,
+      "sizeKb": 9794,
+      "generatedAt": "2026-11-07T12:01:27.507Z",
+      "lastAttempt": "2026-11-07T12:01:27.507Z",
+      "lastError": null,
+      "notes": [
+        "requests 137",
+        "failed 4",
+        "throttled 0",
+        "pages 644",
+        "cursor 563",
+        "ring continuing"
+      ],
+      "canary": "29735 vs previous 28592"
+    },
+    "placsp": {
+      "source": "PLACSP",
+      "label": "PLACSP (Spain)",
+      "count": 6135,
+      "sizeKb": 2291,
+      "generatedAt": "2026-11-07T12:06:40.851Z",
+      "lastAttempt": "2026-11-07T12:06:40.851Z",
+      "lastError": null,
+      "notes": [
+        "backfill complete",
+        "pages 7",
+        "entries 3223",
+        "kept 750",
+        "removed 37"
+      ],
+      "canary": "6135 vs previous 6079"
+    },
+    "tenderned": {
+      "source": "TENDERNED",
+      "label": "TenderNed (Netherlands)",
+      "count": 105,
+      "sizeKb": 22,
+      "generatedAt": "2026-11-07T11:47:59.827Z",
+      "lastAttempt": "2026-11-07T11:47:59.827Z",
+      "lastError": null,
+      "notes": [
+        "requests 32",
+        "listed 3000",
+        "european skipped 2770",
+        "details 2"
+      ],
+      "canary": "105 vs previous 104"
+    },
+    "bzp": {
+      "source": "BZP",
+      "label": "BZP (Poland)",
+      "count": 4621,
+      "sizeKb": 1670,
+      "generatedAt": "2026-11-07T11:48:15.171Z",
+      "lastAttempt": "2026-11-07T11:48:15.171Z",
+      "lastError": null,
+      "notes": [
+        "requests 4",
+        "retried 0",
+        "days 2",
+        "read 658",
+        "backfill complete"
+      ],
+      "canary": "4621 vs previous 5292"
+    },
+    "oev": {
+      "source": "OEV",
+      "label": "oeffentlichevergabe.de (Germany)",
+      "count": 35,
+      "sizeKb": 10,
+      "generatedAt": "2026-11-07T11:48:15.793Z",
+      "lastAttempt": "2026-11-07T11:48:15.793Z",
+      "lastError": null,
+      "notes": [
+        "days 1",
+        "notices 0",
+        "kept 0",
+        "eu skipped 0",
+        "backfill complete"
+      ],
+      "canary": "35 vs previous 35"
+    },
+    "doffin": {
+      "source": "DOFFIN",
+      "label": "Doffin (Norway)",
+      "count": 1307,
+      "sizeKb": 335,
+      "generatedAt": "2026-11-07T11:49:13.075Z",
+      "lastAttempt": "2026-11-07T11:49:13.075Z",
+      "lastError": null,
+      "notes": [
+        "1329 active; reached the oldest with a second, ascending sweep (+309)",
+        "requests 20",
+        "active 1329",
+        "kept 1307"
+      ],
+      "canary": "1307 vs previous 1297"
+    }
+  },
+  "generatedAt": "2026-11-07T12:06:40.864Z",
+  "runStartedAt": "2026-11-07T11:47:02.042Z",
+  "runId": "42369612165"
+}
