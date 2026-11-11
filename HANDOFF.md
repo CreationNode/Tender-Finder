@@ -203,7 +203,7 @@ Verified live from the owner's machine, Aug 2026, and deployed working on Netlif
 | Source | Kind | Scope | Status | Notes |
 |---|---|---|---|---|
 | TED | live | EU/EEA (multi) | ✅ | Payload quirks below. |
-| BOAMP | live | FRA | ✅ | Text search on `objet`. |
+| BOAMP | live | FRA | ✅ | Text search on `objet` by the dictionary's French phrases (`fr`), then a whole-word title check. |
 | SAM.gov | cached | USA | ✅ ~28k open of ~81k | Daily bulk CSV (~6.6 MB index). Needs `SAM_API_KEY`. |
 | UK Find a Tender | cached | GBR | ✅ ~570 | OCDS, `updatedFrom/updatedTo` cursor. |
 | UK Contracts Finder | cached | GBR | ✅ ~510 | v2 `search_notices` API, type Contract, status Open, one request per run (full snapshot). Below-threshold. |
@@ -215,6 +215,18 @@ Verified live from the owner's machine, Aug 2026, and deployed working on Netlif
 `limit` as a **string**, `onlyLatestVersions: false`, full-text query as bare words. Degrades through an
 attempt ladder: country+date+sort → country+date → date+sort → date → default fields → bare. The
 `variant` actually used is reported. Past failure: diverging from this payload made every search fail.
+Since 2026-11-11 the query also asks for `form-type IN (competition change)` and a tender or
+request-to-participate deadline from today on: scope ACTIVE alone returned award results, prior
+information notices (shown as "no closing date") and calls already past their deadline, which used up
+most of the 40 result slots (78 of the newest 100 body-armour notices).
+
+**BOAMP (`boamp.js`)** — no usable codes, so titles are searched. Each dictionary entry carries French
+phrases (`fr` in `data/cpv-map.json`); BOAMP's `search()` stems and matches loosely, so it only gathers
+up to 100 candidates and a title is kept when it contains one phrase as consecutive whole words
+(accents and plurals ignored). With no dictionary match, every one of the user's words must be in the
+title. The old query (English label plus the user's words, ORed one by one) returned Côtes-d'Armor
+notices and "armoires" for "body armor". When adding an entry, give it `fr` phrases specific enough
+to stand alone in a French title ("sièges" alone matches "siège social").
 
 **SAM.gov (`sam-bulk.mjs`)** — a non-federal individual key allows ~10 requests/day, so per-request
 live API use is impossible; the daily public bulk CSV is used instead. Accept-header negotiation

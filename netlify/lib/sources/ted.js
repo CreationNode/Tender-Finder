@@ -51,12 +51,20 @@ function buildBase({ cpvCodes, keywords }) {
 // dropped filters one by one after 0 rows, so an Austria search with nothing open in Austria quietly
 // returned German tenders, labelled as a normal TED result.
 //
-// No publication-date filter: scope ACTIVE already means "still open", and a date window hid
-// long-running calls (dynamic purchasing systems, qualification systems) published months ago.
+// No publication-date filter: a date window hid long-running calls (dynamic purchasing systems)
+// published months ago. The deadline filter below keeps those as long as they still take requests.
 function buildAttempts({ cpvCodes, keywords, country }) {
   const base = buildBase({ cpvCodes, keywords });
   if (!base) return [];
-  const query = country ? `(${base}) AND buyer-country IN (${country})` : base;
+  // Scope ACTIVE still includes contract award results, prior information notices and calls whose
+  // deadline has passed: for body armour on 2026-11-11, 78 of the newest 100 were past their
+  // deadline and 26 were results or advance notices shown as "no closing date". So ask only for
+  // calls for competition (and their corrections) that a newcomer can still answer, by the tender
+  // deadline or, in two-stage procedures, the deadline to ask to take part.
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const open = `form-type IN (competition change) AND (deadline-receipt-tender-date-lot>=${today} OR deadline-receipt-request-date-lot>=${today})`;
+  const scoped = `(${base}) AND ${open}`;
+  const query = country ? `${scoped} AND buyer-country IN (${country})` : scoped;
   return [
     { label: "sorted", query: `${query} SORT BY publication-number DESC`, fields: FIELDS },
     { label: "unsorted", query, fields: FIELDS },
