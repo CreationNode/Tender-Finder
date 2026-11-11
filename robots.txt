@@ -6,6 +6,10 @@ User-agent: *
 Allow: /
 Disallow: /.netlify/functions/
 
+# RSS feeds run a live search of TED and BOAMP for the feed reader asking; a crawler following one
+# would only make those portals answer for no one.
+Disallow: /feed
+
 # Index files are large machine-readable data, not pages.
 Disallow: /data/index/
 
