@@ -16,7 +16,7 @@ export function matchCodes(text,map){
       const m=termRegex(term).exec(q);
       if(m){
         const start=m.index+m[1].length;
-        hits.push({label:entry.label,cpv:entry.cpv,psc:entry.psc||[],pt:entry.pt||[],matched:term,start,end:start+m[2].length});
+        hits.push({label:entry.label,cpv:entry.cpv,psc:entry.psc||[],pt:entry.pt||[],fr:entry.fr||[],matched:term,start,end:start+m[2].length});
         break;
       }
     }
@@ -38,6 +38,7 @@ export function searchPayload(text, hits, { country = "", extra = [] } = {}) {
     matchedTerms: hits.map((h) => h.matched),              // cached sources match these as whole phrases
     pscCodes: [...new Set(hits.flatMap((h) => h.psc))],    // SAM.gov rows carry PSC, not CPV
     ptTerms: [...new Set(hits.flatMap((h) => h.pt))].slice(0, 40),   // Brazil's titles are Portuguese
+    frTerms: [...new Set(hits.flatMap((h) => h.fr || []))].slice(0, 20),   // BOAMP is searched by French title words
     country,
     daysBack: 90, limit: 40,
   };
