@@ -25,21 +25,39 @@ function q(value) {
 }
 
 /**
- * The phrases BOAMP's titles are searched for, ORed together. Each phrase is one `search(objet, …)`
- * clause, which needs all of its words.
+ * The phrases BOAMP's titles are searched for. When the dictionary matched, these are the entries'
+ * French phrases ("gilets pare-balles"); otherwise the user's own words, as one phrase.
  *
- * When the dictionary matched, these are the entries' French phrases ("gilets pare-balles"). Until
- * 2026-11-11 this sent the English label and the user's words split into single words, ORed: "body
- * armor" became body OR armour OR armor OR ballistic OR helmets, and BOAMP's loose matching returned
- * the Côtes-d'Armor department, "armoires" (cabinets) and a hall called Lawson Body, while missing
- * every French body-armour tender. With no dictionary match, the user's own words go as one phrase,
- * so every word has to be in the title.
+ * Until 2026-11-11 this sent the English label and the user's words split into single words, ORed:
+ * "body armor" became body OR armour OR armor OR ballistic OR helmets, which returned the
+ * Côtes-d'Armor department, "armoires" (cabinets) and a hall called Lawson Body, and missed every
+ * French body-armour tender.
  */
 export function boampPhrases({ frTerms, keywords }) {
   const clean = (s) => String(s).replace(/["\\]/g, " ").replace(/\s+/g, " ").trim();
   if (frTerms?.length) return [...new Set(frTerms.map(clean).filter((t) => t.length > 1))].slice(0, 20);
   const words = (keywords || []).map(clean).join(" ").split(" ").filter((w) => w.length > 1).slice(0, 6);
   return words.length ? [words.join(" ")] : [];
+}
+
+// Lowercase, accents off, apostrophes and hyphens to spaces: "Côtes-d'Armor" -> "cotes d armor".
+const fold = (s) => String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+const wordRe = (w) => `${w.replace(/(s|x)$/, "")}(?:s|x)?`;
+
+/**
+ * BOAMP's `search()` stems and matches loosely (it took "établis" for "établissements" and
+ * "casques de chantier" for an insurance contract that mentions "chantier"), so it only gathers
+ * candidates. A title is kept when it contains a dictionary phrase as consecutive whole words
+ * (singular or plural), or, for the user's own words, every one of them as a whole word.
+ */
+export function titleMatcher(phrases, fromDictionary) {
+  const res = phrases.map((p) => {
+    const words = fold(p).split(" ").filter(Boolean);
+    return fromDictionary
+      ? [new RegExp(`(^| )${words.map(wordRe).join(" ")}( |$)`)]
+      : words.map((w) => new RegExp(`(^| )${wordRe(w)}( |$)`));
+  });
+  return (title) => { const t = fold(title); return res.some((all) => all.every((re) => re.test(t))); };
 }
 
 function buildWhere(phrases, daysBack) {
@@ -86,8 +104,10 @@ export async function search({ keywords, frTerms, daysBack, country, limit, sign
     { label: "no date filter", where: `(${phrases.map((p) => `search(objet, ${q(p)})`).join(" OR ")})` },
   ];
 
+  const keep = titleMatcher(phrases, Boolean(frTerms?.length));
   for (const attempt of attempts) {
-    const url = `${ENDPOINT}?where=${encodeURIComponent(attempt.where)}&limit=${Math.min(limit, 100)}&order_by=dateparution%20DESC`;
+    // Ask for the API's maximum: the title check below drops BOAMP's loose matches.
+    const url = `${ENDPOINT}?where=${encodeURIComponent(attempt.where)}&limit=100&order_by=dateparution%20DESC`;
     try {
       const res = await fetchWithTimeout(url, { headers: { accept: "application/json" }, signal });
       const text = await res.text();
@@ -98,7 +118,12 @@ export async function search({ keywords, frTerms, daysBack, country, limit, sign
       const rows = data.results || data.records || [];
       const total = Number(data.total_count);
       // v2.1 returns flat records; older shapes nest under `fields`.
-      return { notices: rows.map((r) => toNotice(r.fields || r)), matched: Number.isFinite(total) ? total : rows.length, variant: attempt.label, status: "ok", diagnostics };
+      const all = rows.map((r) => toNotice(r.fields || r));
+      const kept = all.filter((n) => keep(n.title));
+      const notices = kept.slice(0, limit);
+      if (all.length > kept.length) diagnostics.push(`${all.length - kept.length} of ${all.length} loose matches dropped by the title check`);
+      if (Number.isFinite(total) && total > rows.length) diagnostics.push(`BOAMP found ${total}; the newest ${rows.length} were checked`);
+      return { notices, matched: kept.length, variant: attempt.label, status: "ok", diagnostics };
     } catch (err) {
       const timedOut = err.name === "AbortError" || err.name === "TimeoutError";
       diagnostics.push(`${attempt.label}: ${timedOut ? "timed out" : err.message || err.name}`);
