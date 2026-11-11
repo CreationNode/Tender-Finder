@@ -94,7 +94,7 @@ those sources work at all:
 | Source | Why it cannot be live |
 |---|---|
 | SAM.gov | A non-federal personal API key allows ~**10 requests per day**. Live querying breaks after two or three visitors. The daily bulk CSV is **one** request and returns everything. |
-| Prozorro | Public API is a change **feed** (ids + modification times), not a search endpoint. Crawled forward from a saved cursor. |
+| Prozorro | Public API is a change **feed** (ids + modification times), not a search endpoint. Each run reads the newest changes first and merges open tenders into the index. |
 | CanadaBuys | Multi-megabyte CSV; too slow to fetch per request. Ingested daily instead — **no key required at all**. |
 
 ### Secrets: use .env locally, GitHub secrets in CI
@@ -136,7 +136,7 @@ the previous index. Set a calendar reminder anyway.
 |---|---|---|
 | UK-FTS | working | 100 releases/page; ~20% are opportunities, the rest awards/contracts |
 | UK-CF | working | ~87% opportunities — below-threshold notices, the richest source for small suppliers |
-| Prozorro | working via fallback | the public feed does **not** honour `opt_fields`; details are fetched per tender, capped per run (`PROZORRO_MAX_DETAILS`, default 400) so the index warms up over several days. **Cursor direction matters:** a cold start sweeps newest-first, then parks an *ascending* cursor so later runs move forward in time. Following the descending feed would crawl into the past forever and never see a new tender |
+| Prozorro | working via fallback | the public feed does **not** honour `opt_fields`; details are fetched per tender, capped per run (`PROZORRO_MAX_DETAILS`, default 600) so the index warms up over several days. Every run reads newest first. A saved forward cursor (used until 2026-11-11) fell weeks behind because Prozorro logs more changes a day than a run reads, and the index decayed to 14 rows |
 | CanadaBuys | 403 from a home connection | bot protection, not a bad URL. Three official locations are tried and each status reported; a datacentre IP (GitHub Actions) is often accepted where a residential one is not — **run the workflow before concluding it is down** |
 | AusTender | working, with a caveat | URL discovered from the data.gov.au CKAN record. **The feed publishes no closing dates and no agency** — only title, link, one-line description and publication date (verified against live output). Notices are therefore retired `AUSTENDER_MAX_AGE_DAYS` (default 90) after publication: an estimate, not data. Australian results show no deadline and no buyer |
 | SAM | needs credentials | `SAM_API_KEY` + `SAM_BULK_CSV_URL` |

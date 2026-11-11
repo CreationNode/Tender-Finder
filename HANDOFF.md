@@ -223,8 +223,10 @@ key rejection (a previous version misreported blocks as "key expired"). Drops cl
 `SAM_BULK_CSV_URL` override is optional; default URL works.
 
 **Prozorro (`prozorro.mjs`)** — the feed ignores `opt_fields`, so each candidate tender's detail is
-fetched (`PROZORRO_MAX_DETAILS`, default 400/run). Cold start seeds with `descending=1`, then parks an
-**ascending** cursor (`ascOffset`); a descending cursor crawled into the past forever. Open statuses:
+fetched (`PROZORRO_MAX_DETAILS`, default 600/run). Every run reads the feed newest first
+(`descending=1`, 40 pages of 100) and merges what is open into the existing index. The forward
+(`ascOffset`) cursor it used until 2026-11-11 fell behind, because Prozorro logs more changes a day than
+a run reads, and the index decayed from about 4,000 to 14 without tripping the per-run canary. Open statuses:
 `active.tendering`, `active.enquiries`, `active.auction`. IDs get `UA-` prefix only if missing (there
 was a `UA-UA-` bug). Titles are Ukrainian — see the language-layer roadmap item.
 
