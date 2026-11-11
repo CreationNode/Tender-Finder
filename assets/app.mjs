@@ -1,6 +1,7 @@
 // Page script for index.html. Kept in its own file so the Content-Security-Policy can allow
 // scripts from this site only, with no inline script.
 import { rankCpv } from "./rank.mjs";
+import { matchCodes, searchPayload } from "./match.mjs";
 
 const $=id=>document.getElementById(id);
 function esc(s){return String(s??"").replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]));}
@@ -75,27 +76,7 @@ function searchFull(text,exclude){
 // Substring matching read "healthcare" as "car", "broadband" as "road" and "team" as "tea", and the
 // wrong code then replaced the user's words at TED. Where two entries match overlapping words, only
 // the longer match is kept: "ballistic helmets" is body armour, not also safety helmets.
-function termRegex(term){
-  const t=term.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
-  return new RegExp(`(^|[^\\p{L}\\p{N}])(${t}(?:s|es)?)(?=$|[^\\p{L}\\p{N}])`,"u");
-}
-function matchCodes(text,map){
-  const q=text.toLowerCase().trim();
-  if(!q) return [];
-  const hits=[];
-  for(const entry of map.entries){
-    for(const term of [...entry.terms].sort((a,b)=>b.length-a.length)){
-      const m=termRegex(term).exec(q);
-      if(m){
-        const start=m.index+m[1].length;
-        hits.push({label:entry.label,cpv:entry.cpv,psc:entry.psc||[],pt:entry.pt||[],matched:term,start,end:start+m[2].length});
-        break;
-      }
-    }
-  }
-  const kept=hits.filter(h=>!hits.some(o=>o!==h&&o.end-o.start>h.end-h.start&&o.start<=h.start&&o.end>=h.end));
-  return kept.sort((a,b)=>b.matched.length-a.matched.length).slice(0,4);
-}
+
 
 function renderOfficial(suggestions){
   const box=$("official"), row=$("pickrow");
@@ -287,17 +268,8 @@ async function run(){
     await loadFull();
     renderOfficial(searchFull(text,curated));
 
-    const payload={
-      cpvCodes:[...new Set([...curated,...EXTRA])],
-      keywords:text.split(/\s+/).slice(0,6),   // national portals search words, not codes
-      curatedLabels:hits.map(h=>h.label),
-      matchedTerms:hits.map(h=>h.matched),   // cached sources match these as whole phrases
-      pscCodes:[...new Set(hits.flatMap(h=>h.psc))],   // SAM.gov rows carry PSC, not CPV
-      ptTerms:[...new Set(hits.flatMap(h=>h.pt))].slice(0,40),   // Brazil's titles are Portuguese
-      country:$("country").value,
-      daysBack:90,limit:40,
-      term:text                      // for telemetry only; filtered and truncated server-side
-    };
+    const payload=searchPayload(text,hits,{country:$("country").value,extra:[...EXTRA]});
+    payload.term=text;               // for telemetry only; filtered and truncated server-side
     const res=await fetch("/.netlify/functions/search",{
       method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)
     });
@@ -318,7 +290,14 @@ async function run(){
     LAST={results:data.results||[],sources:data.sources||[],term:text,anyAnswered:data.anyAnswered!==false};
     $("resultsArea").classList.remove("empty-state");
     renderFacets();renderList();renderCoverage(LAST.sources);
+    // Shareable address for this search, and its RSS feed (netlify/functions/feed.js).
+    const qs=new URLSearchParams({q:text});
+    if(payload.country) qs.set("country",payload.country);
+    try{ history.replaceState(null,"",`?${qs}`); }catch{}
+    if(EXTRA.size) qs.set("cpv",[...EXTRA].join(","));
+    $("followlink").href=`/feed?${qs}`;$("follow").hidden=false;
   }catch(err){
+    $("follow").hidden=true;
     LAST={results:[],sources:[],term:text,anyAnswered:true};
     $("resultsArea").classList.remove("empty-state");
     $("facets").innerHTML="";$("coverage").textContent="";
@@ -389,3 +368,15 @@ if(sform){
     $("requested").hidden=false;
   }catch{}
 })();
+
+// A shared or bookmarked search: /?q=body+armour&country=GBR runs on load.
+{
+  const p=new URLSearchParams(location.search);
+  const q=(p.get("q")||"").trim().slice(0,120);
+  if(q){
+    $("what").value=q;lastText=q;
+    const c=(p.get("country")||"").toUpperCase();
+    if(c&&[...$("country").options].some(o=>o.value===c)) $("country").value=c;
+    run();
+  }
+}

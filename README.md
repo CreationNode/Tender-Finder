@@ -215,7 +215,7 @@ GitHub Actions (daily cron)  ->  ingest/run.mjs  ->  data/index/*.json  ->  comm
    `{ rows, notes }`, with rows built by `toRow()` from `ingest/lib/index-format.mjs`.
 2. Register it in `INGESTERS` in `ingest/run.mjs`.
 3. Create `netlify/lib/sources/<name>.js` using `makeCachedSource({ id, label, countries, indexName })`.
-4. Add it to `SOURCES` in `netlify/functions/search.js`.
+4. Add it to `SOURCES` in `netlify/lib/run-search.js`.
 
 ### CanadaBuys
 
@@ -314,7 +314,7 @@ export async function search(params) {  // must NEVER throw
 ```
 
 Each notice must be `{ id, title, buyer, country, deadline, daysLeft, published, cpv, link, source }`.
-Then add the module to `SOURCES` in `netlify/functions/search.js`. Nothing else changes.
+Then add the module to `SOURCES` in `netlify/lib/run-search.js`. Nothing else changes.
 
 Guarantees the orchestrator gives you: sources run in parallel, each with a 6-second timeout; a
 source that fails degrades to "results from the others" plus a visible note; duplicates across
@@ -326,7 +326,10 @@ survivor is tagged `also BOAMP`; closed notices are dropped everywhere.
 - `index.html` — the whole front end. Matches your words against the dictionary and shows the codes.
 - `data/cpv-map.json` — the plain-language -> CPV dictionary. **This is the part to extend.**
 - `netlify/functions/search.js` — queries the TED API server-side (TED does not allow direct browser
-  calls) and returns open notices only.
+  calls) and returns open notices only. The search itself lives in `netlify/lib/run-search.js`.
+- `netlify/functions/feed.js` — the same search as an RSS feed: `/feed?q=body+armour&country=GBR`.
+  The page shows a "Follow this search by RSS" link under every result list, and the page address
+  (`/?q=body+armour`) can be shared or bookmarked.
 
 There is no database and nothing is stored about visitors. Each search is a live lookup.
 
