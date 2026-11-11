@@ -5,9 +5,9 @@
 //
 // Prozorro's public API is a CHANGE FEED, not a search endpoint. `/tenders` returns a page of
 // {id, dateModified} ordered by modification time, plus a `next_page.offset` cursor. There is no
-// "give me open tenders about chairs" query. So we crawl forward from a saved cursor, keep what is
-// still open, merge it into the existing index, and remember where we stopped. Each run does a
-// bounded amount of work; the index converges over the first few days and stays current after that.
+// "give me open tenders about chairs" query. So each run reads the most recent changes (newest
+// first, a bounded number of pages), keeps what is still open, and merges it into the existing index,
+// where rows stay until their deadline passes or the feed shows them closed.
 //
 // The one optimisation that makes this affordable: `opt_fields` asks the listing endpoint to inline
 // the fields we need, so a page of 100 tenders costs ONE request instead of 101. If the deployment
@@ -93,7 +93,7 @@ function toNoticeRow(t, today = new Date().toISOString().slice(0, 10)) {
 
 /**
  * @param previousRows rows from the last index (array-of-arrays)
- * @param previousState { offset } cursor saved by the last run
+ * @param previousState { pendingIds } untitled open tenders still waiting for a detail fetch
  */
 export async function ingest({ fetchImpl = politeFetch, log = console.log, previousRows = [], previousState = {} } = {}) {
   const maxPages = Number(process.env.PROZORRO_MAX_PAGES || 40);
@@ -102,23 +102,18 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
   const startedAt = Date.now();
   const today = new Date().toISOString().slice(0, 10);
 
-  // CURSOR DIRECTION — this was a real bug worth understanding.
+  // READ DIRECTION. Every run reads the change feed newest first (`descending=1`) and stops after
+  // maxPages, then merges what is still open into the existing index.
   //
-  // A cold start uses `descending=1` so the index is useful immediately (newest tenders first)
-  // rather than starting at Prozorro's first-ever record from 2016. But following `next_page` on a
-  // DESCENDING feed walks BACKWARDS IN TIME. Saving that offset meant every later run crawled
-  // further into the past and never saw a single new tender — an index that silently froze while
-  // reporting success.
-  //
-  // The change feed's forward mode is the correct cursor for incremental updates: ascending order
-  // by dateModified, resuming from the last processed point. So a cold start seeds with a
-  // descending sweep and then parks an ASCENDING cursor at "now"; every subsequent run moves
-  // forward and picks up new and changed tenders.
-  const seeding = !previousState.ascOffset;
-  let url = seeding
-    ? `${API}?descending=1&limit=${pageSize}&opt_fields=${OPT_FIELDS}`
-    : `${API}?offset=${encodeURIComponent(previousState.ascOffset)}&limit=${pageSize}&opt_fields=${OPT_FIELDS}`;
-  log(seeding ? "Prozorro: cold start — seeding with a newest-first sweep" : `Prozorro: resuming forward from ${previousState.ascOffset}`);
+  // Until 2026-11-11 only the first run did that; later runs resumed an ascending cursor. But
+  // Prozorro records far more than maxPages × pageSize changes a day, so that cursor fell further
+  // behind every run (by 2026-11-11 it was parked on 2026-10-16), the runs read only weeks-old
+  // changes to tenders that had long closed, and the index shrank from about 4,000 to 14 a little
+  // each day, slowly enough to pass the row-count canary. Newest first always sees today's changes;
+  // open tenders that weren't touched recently stay in the index from earlier runs until their
+  // deadline passes or the feed shows them closed.
+  let url = `${API}?descending=1&limit=${pageSize}&opt_fields=${OPT_FIELDS}`;
+  log("Prozorro: reading the change feed newest first");
 
   const byId = new Map();
   for (const row of previousRows) byId.set(row[0], row);   // row[0] is the id column
@@ -128,7 +123,6 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
   // between runs: the old code kept them only in memory, so whatever the per-run cap didn't reach
   // was never fetched, and those tenders stayed in the index as blank rows (89% of it on 2026-10-01).
   const pending = new Set(Array.isArray(previousState.pendingIds) ? previousState.pendingIds : []);
-  let lastOffset = previousState.ascOffset || "";
   const notes = [];
 
   while (pages < maxPages && Date.now() - startedAt < budgetMs) {
@@ -176,7 +170,6 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
     }
 
     pages++;
-    lastOffset = body.next_page?.offset ?? lastOffset;
     const nextUri = body.next_page?.uri;
     if (!nextUri && !body.next_page?.offset) { notes.push("no further pages"); break; }
     url = nextUri || `${API}?offset=${encodeURIComponent(body.next_page.offset)}&limit=${pageSize}&opt_fields=${OPT_FIELDS}`;
@@ -237,17 +230,11 @@ export async function ingest({ fetchImpl = politeFetch, log = console.log, previ
   log(`Prozorro: ${pages} page(s), ${seen} records -> ${kept} open kept, ${closedOrDone} closed/removed, ${expired} expired pruned; index now ${rows.length}`);
   notes.push(`pages ${pages}`, `records ${seen}`, `kept ${kept}`, `expired ${expired}`);
 
-  // After a seeding (descending) run the collected offset points backwards, so it must NOT become
-  // the incremental cursor. Park the forward cursor at the run start instead; from the next run on,
-  // the offset returned by the ascending feed is the correct thing to carry.
-  const ascOffset = seeding ? new Date(startedAt).toISOString() : (lastOffset || previousState.ascOffset);
-  notes.push(seeding ? "seeded; forward cursor parked at run start" : "advanced forward cursor");
-
   return {
     rows,
     notes,
     // Cap the queue so a feed that stops sending titles altogether can't grow state without bound;
     // the oldest entries go first (they are the likeliest to have closed).
-    state: { ascOffset, pendingIds: [...pending].slice(-Number(process.env.PROZORRO_MAX_PENDING || 5000)), seededAt: previousState.seededAt || new Date(startedAt).toISOString(), updatedAt: new Date().toISOString() },
+    state: { pendingIds: [...pending].slice(-Number(process.env.PROZORRO_MAX_PENDING || 5000)), updatedAt: new Date().toISOString() },
   };
 }
