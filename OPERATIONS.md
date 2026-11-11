@@ -160,7 +160,7 @@ existing `ingest/lib/ocds.mjs` helper; then **Netherlands (TenderNed)** and **Ir
 **CanadaBuys** may simply start working from Actions' datacentre IP — check the first run.
 
 Adding a source is four steps, documented in the README: write the ingester, register it in
-`ingest/run.mjs`, add a cached source module, register it in `netlify/functions/search.js`. Then add
+`ingest/run.mjs`, add a cached source module, register it in `SOURCES` in `netlify/lib/run-search.js`. Then add
 one line to `TILES` in `index.html` so it appears on the map.
 
 ## 2.6 Alerts — last, deliberately

@@ -63,7 +63,7 @@ arrive from users.
 Browser (index.html, ES module, no framework, no build step)
    │  POST /.netlify/functions/search  { cpvCodes, keywords, curatedLabels, country, daysBack, ... }
    ▼
-Netlify Function: search.js  ── orchestrator
+Netlify Function: search.js  ── orchestrator (core in netlify/lib/run-search.js, shared with feed.js)
    ├── LIVE sources (queried per request):   TED, BOAMP
    └── CACHED sources (read JSON index, filter in memory):
          SAM.gov, CanadaBuys, Prozorro, UK Find a Tender, UK Contracts Finder, AusTender
@@ -101,7 +101,7 @@ Notice shape (shared by all sources):
 { id, title, buyer, country, deadline, daysLeft, published, cpv, link, source }
 ```
 
-Orchestrator guarantees (`search.js`):
+Orchestrator guarantees (`runSearch` in `netlify/lib/run-search.js`, used by `search.js` and `feed.js`):
 - Sources selected by country (`selectSources`); out-of-scope and disabled sources are reported, not
   silently skipped.
 - `Promise.allSettled` + 6 s per-source timeout (`fetchWithTimeout` in `contract.js`). One dead portal
@@ -156,7 +156,10 @@ data/cpv-full.json             Generated full vocabulary (committed 2026-10-01).
 data/added-on-request.json     Public "Added on request" ledger of trades added from suggestions.
 data/index/                    Local index output (README only in repo; real data lives on `indexes` branch).
 netlify.toml
-netlify/functions/search.js    Orchestrator.
+netlify/functions/search.js    POST endpoint for the page: parse, runSearch, telemetry, JSON.
+netlify/functions/feed.js      GET /feed?q=…&country=…&cpv=… → RSS 2.0 of the same search (see "RSS feeds").
+netlify/lib/run-search.js      SOURCES registry, selectSources, normalize, runSearch (the orchestrator).
+assets/match.mjs               matchCodes + searchPayload, shared by the page and feed.js.
 netlify/functions/stats.js     GET ?days=N&key=… → totals, matchRate, emptyRate, topMisses. 404 unless STATS_KEY matches.
 netlify/functions/coverage.js  GET → per-source open-notice counts and freshness from the manifest, for the page's "Where we look" table.
                                DELETE after the CanadaBuys question is settled.
@@ -348,7 +351,7 @@ dead ends for this reason)
     backend, not a feed published for reuse. The owner chose (2026-10-01) to use it with light,
     identified use, but a cloud session's safety check refused to probe it, so it is not built yet. Still unverified: Norway Doffin, Ireland eTenders (OCDS).
 15. Adding a source: (a) ingester in `ingest/sources/`, (b) register in `ingest/run.mjs` `INGESTERS`,
-    (c) cached wrapper in `netlify/lib/sources/`, (d) add to `SOURCES` in `search.js`, (e) set the
+    (c) cached wrapper in `netlify/lib/sources/`, (d) add to `SOURCES` in `netlify/lib/run-search.js`, (e) set the
     country tile to `"deep"` in `TILES` in `index.html`, (f) README + SOURCES.md rows.
 
 **P4 — deliberately last**
@@ -384,3 +387,23 @@ To act on one: add the trade to `data/cpv-map.json` (by hand; never let visitors
 since it decides what tenders people see), add a line to the top of `data/added-on-request.json`
 (`{"date":"YYYY-MM-DD","trade":"…","codes":["CPV …"]}`), then delete the submission in Netlify.
 The ledger section stays hidden while its list is empty.
+
+## RSS feeds (added 2026-11-11)
+
+Any search can be followed in a feed reader, with no account and no email address (the
+no-email-capture alternative to alerts, backlog item 16).
+
+- URL: `/feed?q=<words>` with optional `country=<ISO3>` and `cpv=<8-digit codes, comma-separated>`
+  (the "Other official codes" a visitor ticked). `q` is required (400 otherwise), capped at 120
+  characters; at most 10 extra codes.
+- The words go through `assets/match.mjs` (the page's own dictionary matcher and payload builder) and
+  `runSearch`, so a feed lists what the page shows for the same words. Items are newest-published
+  first, at most 60, with buyer, country, deadline, codes, value and source in the description; the
+  guid is `source:id`, so readers mark only new notices as unread.
+- Caching: `netlify-cdn-cache-control: public, durable, max-age=3600, stale-while-revalidate=3600`,
+  so each distinct feed URL asks TED and BOAMP at most about once an hour however many readers poll.
+- Feeds record no telemetry (no SEARCH_METRIC, no stats aggregate) and nothing about the reader.
+- The page puts the search in its address (`/?q=…&country=…`, via `history.replaceState`) and runs a
+  search from those parameters on load, so searches can be shared and the feed's channel link opens
+  the same search on the site.
+
