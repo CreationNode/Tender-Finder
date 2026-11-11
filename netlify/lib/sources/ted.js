@@ -25,6 +25,8 @@ const ENDPOINT = "https://api.ted.europa.eu/v3/notices/search";
 const FIELDS = [
   "publication-number", "notice-title", "buyer-name", "buyer-country",
   "publication-date", "deadline-receipt-tender-date-lot", "classification-cpv",
+  // Two-stage (restricted, negotiated) procedures publish only a deadline to ask to take part.
+  "deadline-receipt-request-date-lot",
   // Shared by a notice and its corrections, so dedupe() can show each procedure once.
   "procedure-identifier",
 ];
@@ -71,7 +73,9 @@ function lastDate(value) {
 
 export function toNotice(row) {
   const pub = normaliseText(row["publication-number"]) || normaliseText(row.ND);
-  const deadline = lastDate(row["deadline-receipt-tender-date-lot"]) || lastDate(row["deadline-date-lot"]);
+  // In a two-stage procedure the first deadline a newcomer faces is the one to apply by; without
+  // it these notices showed "no closing date" and stayed listed after the application window shut.
+  const deadline = lastDate(row["deadline-receipt-tender-date-lot"]) || lastDate(row["deadline-receipt-request-date-lot"]) || lastDate(row["deadline-date-lot"]);
   const title = normaliseText(row["notice-title"]) || normaliseText(row["title-proc"]) || normaliseText(row.TI);
   return {
     id: pub ? `TED-${pub}` : "",

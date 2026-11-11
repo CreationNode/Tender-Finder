@@ -43,7 +43,7 @@ export function normalize(body, origin) {
   // Every list field must be an array and every scalar a string; anything else is treated as absent
   // rather than crashing the function with a 500.
   const list = (v) => (Array.isArray(v) ? v : []);
-  for (const k of ["cpvCodes", "keywords", "curatedLabels", "matchedTerms", "ptTerms", "pscCodes", "naicsCodes", "gsinCodes", "unspscCodes"]) body[k] = list(body[k]);
+  for (const k of ["cpvCodes", "keywords", "curatedLabels", "matchedTerms", "ptTerms", "frTerms", "pscCodes", "naicsCodes", "gsinCodes", "unspscCodes"]) body[k] = list(body[k]);
   if (typeof body.country !== "string") body.country = "";
 
   const cpvCodes = (body.cpvCodes || []).slice(0, 20).map((c) => String(c).replace(/\D/g, "")).filter(Boolean);
@@ -52,6 +52,8 @@ export function normalize(body, origin) {
   const matchedTerms = (body.matchedTerms || []).slice(0, 6).map((k) => String(k).slice(0, 60));
   // Portuguese dictionary terms for the matched entries, used by the Brazil index.
   const ptTerms = (body.ptTerms || []).slice(0, 40).map((k) => String(k).slice(0, 60));
+  // French dictionary phrases for the matched entries, used to search BOAMP's titles.
+  const frTerms = (body.frTerms || []).slice(0, 20).map((k) => String(k).slice(0, 60));
   const daysBack = Math.min(Math.max(parseInt(body.daysBack, 10) || 90, 1), 365);
   const country = (body.country || "").replace(/[^A-Z]/gi, "").slice(0, 3).toUpperCase();
   const limit = Math.min(Math.max(parseInt(body.limit, 10) || 40, 1), 100);
@@ -62,7 +64,7 @@ export function normalize(body, origin) {
   const gsinCodes = (body.gsinCodes || []).slice(0, 5).map((c) => String(c).trim()).filter(Boolean);
   const unspscCodes = (body.unspscCodes || []).slice(0, 5).map((c) => String(c).replace(/\D/g, "")).filter(Boolean);
   // `origin`: cached sources load their index from this site's own CDN, so they need it.
-  const params = { cpvCodes, keywords, curatedLabels, matchedTerms, ptTerms, pscCodes, naicsCodes, gsinCodes, unspscCodes,
+  const params = { cpvCodes, keywords, curatedLabels, matchedTerms, ptTerms, frTerms, pscCodes, naicsCodes, gsinCodes, unspscCodes,
                    daysBack, country, limit, origin };
   if (!cpvCodes.length && !keywords.length && !curatedLabels.length) return { error: "Tell us what you supply first." };
   return { params };
