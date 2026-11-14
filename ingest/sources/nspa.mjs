@@ -67,7 +67,11 @@ export function parseRfps(xml, today) {
 export async function ingest({ fetchImpl = fetchText, log = console.log } = {}) {
   const res = await fetchImpl(URL_XML, { headers: { accept: "application/xml,text/xml" }, retries: 2, timeoutMs: 60000 });
   if (!res.ok) throw new Error(`NSPA XML returned HTTP ${res.status}`);
-  if (!/<eProcurementData[\s>]/.test(res.text)) throw new Error("NSPA XML has no <eProcurementData> root; the format may have changed");
+  // The 2018 documentation names the root <eProcurementData>; the live file (2026-11-14) uses
+  // <XMLProcurementData>. Either is accepted, and anything else (an error page) fails the run.
+  if (!/<(XMLProcurementData|eProcurementData)[\s>]/.test(res.text) || !/<RFPList[\s>/]/.test(res.text)) {
+    throw new Error("NSPA XML has no procurement-data root with an <RFPList>; the format may have changed");
+  }
   const today = new Date().toISOString().slice(0, 10);
   const { rows, total, closed } = parseRfps(res.text, today);
   const fbo = (res.text.match(/<FBOItem>/g) || []).length;
