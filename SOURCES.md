@@ -24,9 +24,12 @@ we use it, open an issue on this repository and we will act on it.
 | [BZP / e-Zamówienia](https://ezamowienia.gov.pl) | Polish Public Procurement Office (UZP) | BZP notice API (no access request needed under the UZP API terms) | Polish public information; terms not yet confirmed |
 | [oeffentlichevergabe.de](https://oeffentlichevergabe.de) | German federal government | OpenData daily eForms exports | Reported as CC0; not yet confirmed |
 | [Doffin](https://www.doffin.no) | DFØ, Norway | public v2 notice API (API key) | NLOD; not yet confirmed |
+| [NSPA](https://eportal.nspa.nato.int) | NATO Support and Procurement Agency | eProcurement XML file published for partners' systems | NATO; reuse terms not stated. Bids only from firms in NATO member countries registered in NSPA's source file |
 
 Not searched: **CanadaBuys** (Canada) refuses requests from our servers. We don't work around a
-block; the source stays off until the operator gives access.
+block; the source stays off until the operator gives access. **NATO NCIA** and **OCCAR** answer our
+servers with a bot challenge (HTTP 403), so their own opportunity pages are not searched either. OCCAR
+and the **European Defence Agency** publish their larger contracts on TED, which we search.
 
 ## How we access sources
 

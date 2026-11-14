@@ -266,6 +266,24 @@ GitHub Actions runners get the same 403 (checked 2026-10-01), so the source is d
 side (`CANADABUYS_ENABLED=1` re-enables it) and the probe function was deleted. Contact the operator
 and document it — do not circumvent.
 
+**NSPA (`nspa.mjs`, added 2026-11-14)** — NATO Support and Procurement Agency. One daily GET of
+`https://eportal.nspa.nato.int/eProcurement/XML/eProcurementData.xml`, the XML file NSPA documents
+(eProcurementXMLFileEN.pdf, 2018) "to meet the requirements of our partners' information systems";
+updated hourly; the host has no robots.txt. Only `<RFPItem>` rows with a future `RFPClosingDate` are
+kept (76 on 2026-11-14); `<FBOItem>` future opportunities have no deadline and many date from 2021.
+Rows use the pseudo-country `INT` ("International bodies" in the country picker); TED is not queried
+for INT because it can't filter on it. Buyer is the short "NATO NSPA" on purpose: a buyer name
+containing "support" or "procurement" would match every row. Eligibility: only firms from NATO member
+countries, registered in NSPA's source file; the site says so. `NSPA_DISABLED=1` in Netlify turns it off.
+
+**Other defence agencies checked 2026-11-14 (not built).** NATO NCIA (ncia.nato.int) and OCCAR
+(occar.int) answer GitHub runners with a Cloudflare challenge (HTTP 403) on their opportunity pages, so
+under the access rules they need the operator's permission; neither offers a feed. OCCAR's robots.txt
+allows search but says ai-train=no, use=reference. TED carries OCCAR notices (2 in 2026, one a
+competition) and the European Defence Agency's (91 in 2026, competitions included), so both are already
+partly covered by the TED source. NCIA has no TED notices; its bids also need a Declaration of
+Eligibility from the bidder's national NATO delegation.
+
 ---
 
 ## 5. Operations

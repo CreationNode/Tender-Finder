@@ -18,18 +18,20 @@ import * as tenderned from "./sources/tenderned.js";
 import * as bzp from "./sources/bzp.js";
 import * as oev from "./sources/oev.js";
 import * as doffin from "./sources/doffin.js";
+import * as nspa from "./sources/nspa.js";
 
 // The source registry. Order is irrelevant (they run in parallel); what matters is that each one
 // declares `enabled` and `countries`, so we never spend latency on a portal that cannot possibly
 // have results for the selected country.
-const SOURCES = [ted, boamp, sam, canadabuys, prozorro, ukfts, ukcf, austender, pncp, placsp, tenderned, bzp, oev, doffin];
+const SOURCES = [ted, boamp, sam, canadabuys, prozorro, ukfts, ukcf, austender, pncp, placsp, tenderned, bzp, oev, doffin, nspa];
 
 /** Which sources can serve this request? null `countries` means multi-country coverage. */
 function selectSources(country) {
   return SOURCES.filter((s) => {
     if (s.enabled === false) return false;
     if (!country) return true;                       // "all countries": query everything enabled
-    if (!s.countries) return true;                   // multi-country source (TED)
+    // "INT" (international bodies such as NATO's NSPA) is not a country TED can filter on.
+    if (!s.countries) return country !== "INT";      // multi-country source (TED)
     return s.countries.includes(country);
   });
 }
