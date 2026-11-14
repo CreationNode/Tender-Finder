@@ -27,13 +27,14 @@ import * as tenderned from "./sources/tenderned.mjs";
 import * as bzp from "./sources/bzp.mjs";
 import * as oev from "./sources/oev.mjs";
 import * as doffin from "./sources/doffin.mjs";
+import * as nspa from "./sources/nspa.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(HERE, "..", "data", "index");
 
 // CanadaBuys refuses our requests (HTTP 403, from GitHub runners too), so it is only run when
 // CANADABUYS_ENABLED=1, e.g. once the operator grants access. Asking daily for a refusal helps no one.
-const INGESTERS = { sam: samBulk, ...(process.env.CANADABUYS_ENABLED === "1" ? { canadabuys } : {}), prozorro, ukfts: ukFts, ukcf: ukCf, austender, tenderned, bzp, oev, doffin, pncp, placsp };
+const INGESTERS = { sam: samBulk, ...(process.env.CANADABUYS_ENABLED === "1" ? { canadabuys } : {}), prozorro, ukfts: ukFts, ukcf: ukCf, austender, tenderned, bzp, oev, doffin, nspa, pncp, placsp };
 
 function readJson(file, fallback = null) {
   try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return fallback; }

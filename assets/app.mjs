@@ -12,6 +12,7 @@ function safeLink(u){u=String(u??"").trim();return /^https?:\/\//i.test(u)?u:"#"
 // and silently returning little for most of them.
 const COUNTRY_GROUPS=[
   ["National sources",[["GBR","United Kingdom"],["USA","United States"],["FRA","France"],["UKR","Ukraine"],["AUS","Australia"],["BRA","Brazil"],["ESP","Spain"],["NLD","Netherlands"],["POL","Poland"],["DEU","Germany"],["NOR","Norway"]]],
+  ["International bodies",[["INT","NATO (NSPA)"]]],
   ["EU-wide (TED) only",[["AUT","Austria"],["BEL","Belgium"],["BGR","Bulgaria"],["HRV","Croatia"],["CYP","Cyprus"],["CZE","Czechia"],["DNK","Denmark"],["EST","Estonia"],["FIN","Finland"],["GRC","Greece"],["HUN","Hungary"],["IRL","Ireland"],["ITA","Italy"],["LVA","Latvia"],["LTU","Lithuania"],["LUX","Luxembourg"],["MLT","Malta"],["PRT","Portugal"],["ROU","Romania"],["SVK","Slovakia"],["SVN","Slovenia"],["SWE","Sweden"],["ISL","Iceland"],["CHE","Switzerland"],["LIE","Liechtenstein"]]],
 ];
 const COUNTRY_NAME=Object.fromEntries(COUNTRY_GROUPS.flatMap(([,l])=>l));
@@ -151,7 +152,7 @@ function dueBlock(r){
 
 // Portal names as the "Where we look" table writes them, instead of internal source ids.
 const SOURCE_LABEL={TED:"TED",BOAMP:"BOAMP",SAM:"SAM.gov",PROZORRO:"Prozorro","UK-FTS":"Find a Tender","UK-CF":"Contracts Finder",
-  AUSTENDER:"AusTender",PNCP:"PNCP",PLACSP:"PLACSP",TENDERNED:"TenderNed",BZP:"BZP",OEV:"oeffentlichevergabe.de",DOFFIN:"Doffin",CANADABUYS:"CanadaBuys"};
+  AUSTENDER:"AusTender",PNCP:"PNCP",PLACSP:"PLACSP",TENDERNED:"TenderNed",BZP:"BZP",OEV:"oeffentlichevergabe.de",DOFFIN:"Doffin",NSPA:"NSPA",CANADABUYS:"CanadaBuys"};
 const sourceName=id=>SOURCE_LABEL[id]||id;
 
 function renderList(){
